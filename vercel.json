@@ -1,0 +1,11 @@
+{
+  "version": 3,
+  "functions": {
+    "api/goodreads.js": {
+      "maxDuration": 10
+    }
+  },
+  "routes": [
+    { "src": "/api/goodreads", "dest": "api/goodreads.js" }
+  ]
+}

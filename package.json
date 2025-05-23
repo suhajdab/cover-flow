@@ -1,0 +1,12 @@
+{
+  "name": "goodreads-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "fast-xml-parser": "^5.2.3",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
