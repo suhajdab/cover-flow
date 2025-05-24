@@ -40,34 +40,6 @@ async function initializeApp() {
     const bookCount = bookData.total || books.length;
     document.getElementById('book-count').textContent = `Books: ${bookCount}`;
 
-    // Sort books by read_at in descending order (most recent first)
-    books.sort((a, b) => {
-      const dateAString = a.read_at;
-      const dateBString = b.read_at;
-
-      // Handle cases where dates might be missing or invalid
-      if (!dateAString && !dateBString) return 0;
-      if (!dateAString) return 1;
-      if (!dateBString) return -1;
-
-      try {
-        const dateA = new Date(dateAString);
-        const dateB = new Date(dateBString);
-
-        if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
-        if (isNaN(dateA.getTime())) return 1;
-        if (isNaN(dateB.getTime())) return -1;
-
-        return dateB - dateA;
-      } catch (e) {
-        console.warn("Error parsing date for sorting:", a.title, dateAString, b.title, dateBString, e);
-        if (!dateAString && !dateBString) return 0;
-        if (!dateAString) return 1;
-        if (!dateBString) return -1;
-        return 0;
-      }
-    });
-
     // Start building the wall
     buildWall();
   } catch (error) {
