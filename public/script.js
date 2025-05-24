@@ -148,7 +148,7 @@ function preloadImages(books, onProgress, onComplete) {
 function buildWallWithPreloaded(images) {
   coverFlow.innerHTML = '';
   const { width, height } = getViewportSize();
-  const colWidth = 240;
+  const colWidth = 200;
   let numCols = Math.ceil(width / colWidth);
 
   // Create enhanced items with year dividers

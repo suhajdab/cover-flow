@@ -1,13 +1,13 @@
 // Configuration constants
 export const CONFIG = {
   // Layout constants
-  COLUMN_WIDTH: 240,
+  COLUMN_WIDTH: 200,
   MAX_IMAGE_HEIGHT: 320,
   YEAR_TAG_HEIGHT: 60,
   YEAR_TAG_MARGIN: 20,
 
   // Animation constants
-  ANIMATION_SPEED: 20, // pixels per second
+  ANIMATION_SPEED: 30, // pixels per second
   MAX_REPEATS: 10,
 
   // UI constants

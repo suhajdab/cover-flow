@@ -34,7 +34,7 @@ body {
 
 /* Column optimizations */
 .cover-column {
-  width: 240px;
+  width: 200px;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -48,7 +48,7 @@ body {
 
 /* Book cover optimizations */
 .book-cover {
-  width: 240px;
+  width: 200px;
   height: auto;
   display: block;
   object-fit: cover;
