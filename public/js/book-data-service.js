@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js';
+import { Config } from './config.js';
 
 /**
  * Service for handling API calls and data management
@@ -15,7 +15,8 @@ export class BookDataService {
    */
   async fetchBookData() {
     try {
-      const response = await fetch(CONFIG.API_ENDPOINT);
+      const apiEndpoint = Config.buildApiEndpoint();
+      const response = await fetch(apiEndpoint);
 
       if (!response.ok) {
         throw this.createHttpError(response.status);

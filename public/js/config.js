@@ -15,7 +15,50 @@ export const CONFIG = {
   CARD_HIDE_TRANSITION: 500,
 
   // API constants
-  API_ENDPOINT: '/api/goodreads?userId=18906657&shelf=read'
+  DEFAULT_USER_ID: '18906657',
+  DEFAULT_SHELF: 'read',
+  API_BASE_PATH: '/api/goodreads'
+};
+
+/**
+ * Utility functions for URL and API handling
+ */
+export const Config = {
+  /**
+   * Get URL search parameters
+   * @returns {URLSearchParams} URL search parameters
+   */
+  getUrlParams() {
+    return new URLSearchParams(window.location.search);
+  },
+
+  /**
+   * Get user ID from URL params or use default
+   * @returns {string} User ID
+   */
+  getUserId() {
+    const params = this.getUrlParams();
+    return params.get('userId') || CONFIG.DEFAULT_USER_ID;
+  },
+
+  /**
+   * Get shelf from URL params or use default
+   * @returns {string} Shelf name
+   */
+  getShelf() {
+    const params = this.getUrlParams();
+    return params.get('shelf') || CONFIG.DEFAULT_SHELF;
+  },
+
+  /**
+   * Build API endpoint URL with current parameters
+   * @returns {string} Complete API endpoint URL
+   */
+  buildApiEndpoint() {
+    const userId = this.getUserId();
+    const shelf = this.getShelf();
+    return `${CONFIG.API_BASE_PATH}?userId=${encodeURIComponent(userId)}&shelf=${encodeURIComponent(shelf)}`;
+  }
 };
 
 export const SELECTORS = {
