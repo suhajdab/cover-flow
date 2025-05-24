@@ -59,7 +59,7 @@ export default async function handler(req, res) {
           title: raw.title,
           author_name: raw['author_name'],
           image_url: raw.book_large_image_url || '',
-          read_at: raw.read_at,
+          read_at: raw.user_read_at,
           date_added: raw.user_date_added || raw.date_added,
         };
         allItems.push(keep ? Object.fromEntries(Object.entries(obj).filter(([k]) => keep.includes(k))) : obj);
