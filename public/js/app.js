@@ -20,9 +20,7 @@ export class BookCoverFlowApp {
 
     // Bind methods
     this.handleResize = this.debounce(this.handleResize.bind(this), 250);
-  }
-
-  /**
+  }  /**
    * Initialize the application
    */
   async initialize() {
@@ -114,10 +112,33 @@ export class BookCoverFlowApp {
   }
 
   /**
-   * Handle window resize events
+   * Log performance metrics to console
+   */
+  logPerformanceMetrics() {
+    console.group('🚀 Application Performance Metrics');
+    console.log(`⚡ Init Time: ${this.performanceMetrics.initTime.toFixed(2)}ms`);
+    console.log(`🎨 Render Time: ${this.performanceMetrics.renderTime.toFixed(2)}ms`);
+    console.log(`📊 Animation Started: ${(this.performanceMetrics.animationStartTime - this.performanceMetrics.startTime).toFixed(2)}ms from start`);
+
+    // Get renderer metrics
+    const rendererMetrics = this.coverFlowRenderer.getPerformanceMetrics();
+    console.log(`🗄️ Cache Efficiency:`, rendererMetrics);
+
+    // Performance summary from monitor
+    setTimeout(() => {
+      performanceMonitor.logReport();
+    }, 2000); // Wait 2 seconds for FPS measurement
+
+    console.groupEnd();
+  }
+
+  /**
+   * Handle window resize events with performance awareness
    */
   handleResize() {
     if (this.animationController?.isAnimationRunning()) {
+      // Clean up resources before rebuild
+      this.coverFlowRenderer.cleanup();
       this.buildWall();
     }
   }
@@ -127,13 +148,37 @@ export class BookCoverFlowApp {
    */
   setupEventListeners() {
     window.addEventListener('resize', this.handleResize);
+
+    // Add performance debugging hotkeys
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'p' && e.ctrlKey) {
+        e.preventDefault();
+        this.logPerformanceMetrics();
+      }
+      if (e.key === 'c' && e.ctrlKey) {
+        e.preventDefault();
+        this.cleanupResources();
+      }
+    });
   }
 
   /**
-   * Clean up resources
+   * Clean up resources manually
+   */
+  cleanupResources() {
+    console.log('🧹 Cleaning up resources...');
+    this.coverFlowRenderer?.cleanup();
+    this.animationController?.destroy?.();
+    console.log('✅ Resources cleaned up');
+  }
+
+  /**
+   * Clean up all resources
    */
   destroy() {
-    this.animationController?.stop();
+    performanceMonitor.stopMonitoring();
+    this.animationController?.destroy?.();
+    this.coverFlowRenderer?.cleanup();
     window.removeEventListener('resize', this.handleResize);
   }
 
@@ -154,6 +199,18 @@ export class BookCoverFlowApp {
       timeout = setTimeout(later, wait);
     };
   }
+
+  /**
+   * Get current performance summary
+   */
+  getPerformanceSummary() {
+    return {
+      ...this.performanceMetrics,
+      monitor: performanceMonitor.getSummary(),
+      renderer: this.coverFlowRenderer?.getPerformanceMetrics(),
+      uptime: performance.now() - this.performanceMetrics.startTime
+    };
+  }
 }
 
 // Initialize the application when DOM is ready
@@ -163,4 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Make app globally available for debugging
   window.bookCoverFlowApp = app;
+
+  // Add global performance utilities
+  window.getPerformanceReport = () => app.getPerformanceSummary();
+  window.cleanupResources = () => app.cleanupResources();
 });

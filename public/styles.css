@@ -1,7 +1,126 @@
-body {
-  background: #111;
+/* Performance optimized styles with GPU acceleration */
+
+/* Base optimizations for smooth rendering */
+* {
+  box-sizing: border-box;
 }
 
+body {
+  background: #111;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Improve font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Optimize rendering */
+  transform: translateZ(0);
+}
+
+/* Container optimizations */
+#cover-flow {
+  position: relative;
+  display: flex;
+  height: 100vh;
+  width: fit-content;
+  overflow: hidden;
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Optimize compositing */
+  contain: layout style paint;
+}
+
+/* Column optimizations */
+.cover-column {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Optimize rendering */
+  contain: layout style;
+}
+
+/* Book cover optimizations */
+.book-cover {
+  width: 240px;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  /* Prevent dragging */
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Optimize image rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: optimize-contrast;
+  /* Reduce memory usage */
+  contain: layout style;
+}
+
+/* Year tag optimizations */
+.year-tag {
+  position: relative;
+  display: flex;
+  flex: 0;
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 32px;
+  font-weight: 200;
+  letter-spacing: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #101010 0%, #190900 100%);
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Optimize compositing */
+  contain: layout style paint;
+}
+
+/* Optimized shimmer animation */
+.year-tag::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    95deg,
+    transparent,
+    hsla(22, 100%, 50%, 0.6),
+    hsla(22, 100%, 50%, 0.7),
+    hsla(22, 100%, 50%, 0.6),
+    transparent
+  );
+  animation: shimmer 20s infinite linear;
+  /* GPU acceleration for animation */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-10%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* Floating card optimizations */
 #floating-card {
   position: fixed;
   bottom: 32px;
@@ -21,10 +140,16 @@ body {
   align-items: flex-start;
   gap: 8px;
   transition: transform 0.5s ease-in-out;
+  /* GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* Optimize compositing */
+  contain: layout style paint;
 }
 
 #floating-card.hidden {
-  transform: translateY(calc(100% + 50px));
+  transform: translate3d(0, calc(100% + 50px), 0);
 }
 
 #channel-title {
@@ -32,12 +157,14 @@ body {
   font-size: 1.3em;
   color: #fff;
   line-height: 1.3;
+  margin: 0;
 }
 
 #book-count {
   color: #ccc;
   font-size: 1.1em;
   font-weight: 500;
+  margin: 0;
 }
 
 #progress-bar {
@@ -47,120 +174,23 @@ body {
   border-radius: 3px;
   overflow: hidden;
   display: block;
+  /* Optimize rendering */
+  contain: layout style;
 }
 
 #progress-bar-inner {
   height: 100%;
-  width: 0;
-  background: linear-gradient(
-    90deg,
-    hsla(22, 75%, 49%, 1),
-    hsla(22, 75%, 58%, 1)
-  );
+  background: linear-gradient(90deg, #ff6b35, #f7931e);
   border-radius: 3px;
   transition: width 0.3s ease;
+  width: 0%;
+  /* GPU acceleration for smooth width transitions */
+  will-change: width;
+  transform: translateZ(0);
 }
 
 #progress-text {
   font-size: 1em;
-  color: #bbb;
-  font-weight: 500;
-  display: block;
-}
-
-/* Cover flow grid styles */
-#cover-flow {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  width: 100vw;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  pointer-events: none;
-  will-change: transform;
-  /* For smooth animation */
-}
-
-.cover-column {
-  width: 240px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.book-cover {
-  width: 240px;
-  height: auto;
-  object-fit: contain;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  background: #f8f8f8;
-  display: block;
-}
-
-.year-tag {
-  width: 240px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 32px;
-  font-weight: 200;
-  letter-spacing: 16px;
-  color: #fff;
-  background: linear-gradient(135deg, #101010 0%, #190900 100%);
-  position: relative;
-  overflow: hidden;
-}
-
-.year-tag::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    hsla(22, 100%, 50%, 0.5),
-    hsla(22, 100%, 50%, 0.7),
-    hsla(22, 100%, 50%, 0.5),
-    transparent
-  );
-  animation: shimmer 20s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    left: -100%;
-  }
-
-  100% {
-    left: 100%;
-  }
-}
-
-.cover-tile {
-  width: 90px;
-  height: 135px;
-  background: #222;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s;
-  cursor: pointer;
-  position: relative;
-}
-
-.cover-tile img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  background: #333;
+  color: #999;
+  margin: 4px 0 0 0;
 }

@@ -316,10 +316,10 @@ function startCoverFlowAnimation(columns, colWidth, height, items, initialNextIt
     const speed = 20;
     coverFlowOffset -= (speed * delta) / 1000;
 
-    // When the last column is fully visible, add a new column to the right
+    // When the last column starts to become visible, add a new column to the right
     const wallWidth = getWallWidth();
     const { width } = getViewportSize();
-    if (wallWidth + coverFlowOffset < width + colWidth) {
+    if (wallWidth + coverFlowOffset <= width) {
       addColumnToRight();
     }
 
