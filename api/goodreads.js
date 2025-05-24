@@ -4,21 +4,21 @@
     Query parameters:
       userId   – Goodreads numerical user id     (required)
       shelf    – Shelf name, e.g. "to-read"      (optional, default "read")
-      perPage  – Items per page 1-200            (optional, default 100)
       maxPages – Fail-safe page limit            (optional, default 20)
       fields   – Comma-sep list of properties to keep (optional)
 
     Example:
-      /api/goodreads?userId=137464693&shelf=read&perPage=200
+      /api/goodreads?userId=137464693&shelf=read
 */
 
 import { XMLParser } from "fast-xml-parser";
-import fetch from 'node-fetch';               // Node ≥ 18 has global fetch – keep for ≤ 18
 
 const parser = new XMLParser();
 
 export default async function handler(req, res) {
+
   try {
+    let title = '';
     const {
       userId,
       shelf = 'read',
@@ -34,14 +34,14 @@ export default async function handler(req, res) {
     const keep = fields ? fields.split(',') : null;
 
     // goodreads rss example: https://www.goodreads.com/review/list_rss/18906657?key=-I4ajTpWDLwBoUseE9oOvPY79yya1ocsyHLfMWB760INaEPi&shelf=read&sort=date_read&page=2
-    const base = `https://www.goodreads.com/review/list_rss/${userId}?shelf=${encodeURIComponent(
+    const base = `https://www.goodreads.com/review/list_rss/${userId}?key=-I4ajTpWDLwBoUseE9oOvPY79yya1ocsyHLfMWB760INaEPi&shelf=${encodeURIComponent(
       shelf,
-    )}&sort=date_added&order=d`;
+    )}&sort=date_read`;
 
     const allItems = [];
     for (let page = 1; page <= maxPages; page += 1) {
       const url = `${base}&page=${page}`;
-      const xml = await fetch(url, { headers: { 'User-Agent': 'goodreads-json-proxy/1.0' } }).then(
+      const xml = await fetch(url).then(
         r => {
           if (!r.ok) throw new Error(`Goodreads returned ${r.status} for ${url}`);
           return r.text();
@@ -49,8 +49,8 @@ export default async function handler(req, res) {
       );
 
       const feed = parser.parse(xml, { ignoreAttributes: false, attributeNamePrefix: '' });
-      console.log(JSON.stringify(feed, null, 2)); // debug
       const items = feed?.rss?.channel?.item ?? [];
+      title = feed?.rss?.channel?.title ?? '';
 
       // map → thin JSON
       items.forEach(raw => {
@@ -65,11 +65,11 @@ export default async function handler(req, res) {
         allItems.push(keep ? Object.fromEntries(Object.entries(obj).filter(([k]) => keep.includes(k))) : obj);
       });
 
-      if (items.length < perPage) break; // last page reached
+      if (items.length < 100) break; // last page reached
     }
 
-    res.setHeader('Cache-Control', 's-maxage=600, stale-while-revalidate'); // 10 min CDN
-    return res.status(200).json({ total: allItems.length, shelf, userId, items: allItems });
+    res.setHeader('Cache-Control', 's-maxage=86400, stale-while-revalidate'); // 24 hour CDN
+    return res.status(200).json({ total: allItems.length, shelf, userId, items: allItems, title });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message });
