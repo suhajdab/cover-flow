@@ -3,6 +3,7 @@ import { ImageLoader } from './image-loader.js';
 import { CoverFlowRenderer } from './cover-flow-renderer.js';
 import { AnimationController } from './animation-controller.js';
 import { UIManager } from './ui-manager.js';
+import { RSSDialog } from './rss-dialog.js';
 import { SELECTORS } from './config.js';
 
 /**
@@ -25,6 +26,12 @@ export class BookCoverFlowApp {
    */
   async initialize() {
     try {
+      // Check if we have required query parameters
+      if (!RSSDialog.hasRequiredParams()) {
+        this.showRSSDialog();
+        return;
+      }
+
       // Initialize DOM-dependent components
       const coverFlowElement = document.querySelector(SELECTORS.COVER_FLOW);
       if (!coverFlowElement) {
@@ -130,6 +137,14 @@ export class BookCoverFlowApp {
     }, 2000); // Wait 2 seconds for FPS measurement
 
     console.groupEnd();
+  }
+
+  /**
+   * Show the RSS dialog for URL input
+   */
+  showRSSDialog() {
+    const rssDialog = new RSSDialog();
+    rssDialog.show();
   }
 
   /**
