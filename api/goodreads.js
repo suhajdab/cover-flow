@@ -1,5 +1,5 @@
 /*  api/goodreads.js
-    A Vercel Node.js (λ) that proxies a Goodreads shelf RSS into clean JSON.
+    A Vercel Node.js (λ) that converts a Goodreads shelf RSS into clean JSON.
 
     Query parameters:
       userId   – Goodreads numerical user id     (required)

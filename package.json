@@ -1,6 +1,8 @@
 {
-  "name": "goodreads-proxy",
+  "name": "cover-flow",
   "version": "1.0.0",
+  "description": "A beautiful, animated cover flow visualization of your Goodreads library",
+  "keywords": [ "goodreads", "cover-flow", "books", "visualization", "reading", "library" ],
   "private": true,
   "dependencies": {
     "fast-xml-parser": "^5.2.3",
