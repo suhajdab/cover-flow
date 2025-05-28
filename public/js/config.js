@@ -51,13 +51,31 @@ export const Config = {
   },
 
   /**
+   * Get key from URL params
+   * @returns {string|null} API key or null if not provided
+   */
+  getKey() {
+    const params = this.getUrlParams();
+    return params.get('key');
+  },
+
+  /**
    * Build API endpoint URL with current parameters
    * @returns {string} Complete API endpoint URL
    */
   buildApiEndpoint() {
     const userId = this.getUserId();
     const shelf = this.getShelf();
-    return `${CONFIG.API_BASE_PATH}?userId=${encodeURIComponent(userId)}&shelf=${encodeURIComponent(shelf)}`;
+    const key = this.getKey();
+
+    let endpoint = `${CONFIG.API_BASE_PATH}?userId=${encodeURIComponent(userId)}&shelf=${encodeURIComponent(shelf)}`;
+
+    // Add key parameter if it exists
+    if (key) {
+      endpoint += `&key=${encodeURIComponent(key)}`;
+    }
+
+    return endpoint;
   }
 };
 

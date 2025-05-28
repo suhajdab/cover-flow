@@ -106,7 +106,7 @@ export class RSSDialog {
 
     try {
       const parsed = this.parseGoodreadsRSSUrl(url);
-      this.redirectToShelf(parsed.userId, parsed.shelf);
+      this.redirectToShelf(parsed.userId, parsed.shelf, parsed.key);
     } catch (error) {
       this.showError(error.message);
     }
@@ -115,7 +115,7 @@ export class RSSDialog {
   /**
    * Parse Goodreads RSS feed URL to extract userId and shelf
    * @param {string} url - The RSS feed URL
-   * @returns {Object} Object with userId and shelf
+   * @returns {Object} Object with userId, shelf, and key
    */
   parseGoodreadsRSSUrl(url) {
     try {
@@ -135,11 +135,12 @@ export class RSSDialog {
 
       const userId = pathMatch[1];
 
-      // Extract shelf from query parameters
+      // Extract shelf and key from query parameters
       const searchParams = new URLSearchParams(urlObj.search);
       const shelf = searchParams.get('shelf') || 'read';
+      const key = searchParams.get('key');
 
-      return { userId, shelf };
+      return { userId, shelf, key };
     } catch (error) {
       if (error instanceof TypeError) {
         throw new Error('Please enter a valid URL');
@@ -152,11 +153,17 @@ export class RSSDialog {
    * Redirect to the app with userId and shelf parameters
    * @param {string} userId - Goodreads user ID
    * @param {string} shelf - Shelf name
+   * @param {string} key - Goodreads API key (optional)
    */
-  redirectToShelf(userId, shelf) {
+  redirectToShelf(userId, shelf, key) {
     const url = new URL(window.location.href);
     url.searchParams.set('userId', userId);
     url.searchParams.set('shelf', shelf);
+
+    // Add key parameter if it exists
+    if (key) {
+      url.searchParams.set('key', key);
+    }
 
     // Navigate to the URL with parameters
     window.location.href = url.toString();

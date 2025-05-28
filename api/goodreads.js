@@ -4,11 +4,12 @@
     Query parameters:
       userId   – Goodreads numerical user id     (required)
       shelf    – Shelf name, e.g. "to-read"      (optional, default "read")
+      key      – Goodreads RSS key               (optional, omitted if not provided)
       maxPages – Fail-safe page limit            (optional, default 20)
       fields   – Comma-sep list of properties to keep (optional)
 
     Example:
-      /api/goodreads?userId=137464693&shelf=read
+      /api/goodreads?userId=137464693&shelf=read&key=YOUR_RSS_KEY
 */
 
 import { XMLParser } from "fast-xml-parser";
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
       shelf = 'read',
       maxPages = 20,
       fields,                      // e.g. "title,author_name,link"
+      key,                         // Goodreads RSS key (optional)
     } = req.query;
 
     if (!userId) {
@@ -33,10 +35,13 @@ export default async function handler(req, res) {
 
     const keep = fields ? fields.split(',') : null;
 
-    // goodreads rss example: https://www.goodreads.com/review/list_rss/18906657?key=-I4ajTpWDLwBoUseE9oOvPY79yya1ocsyHLfMWB760INaEPi&shelf=read&sort=date_read&page=2
-    const base = `https://www.goodreads.com/review/list_rss/${userId}?key=-I4ajTpWDLwBoUseE9oOvPY79yya1ocsyHLfMWB760INaEPi&shelf=${encodeURIComponent(
-      shelf,
-    )}&sort=date_read`;
+    // Build base URL with required parameters
+    let base = `https://www.goodreads.com/review/list_rss/${userId}?shelf=${encodeURIComponent(shelf)}&sort=date_read`;
+
+    // Add key parameter only if provided
+    if (key) {
+      base = `https://www.goodreads.com/review/list_rss/${userId}?key=${encodeURIComponent(key)}&shelf=${encodeURIComponent(shelf)}&sort=date_read`;
+    }
 
     const allItems = [];
     for (let page = 1; page <= maxPages; page += 1) {
