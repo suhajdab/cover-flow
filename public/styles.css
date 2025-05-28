@@ -302,6 +302,31 @@ body {
   font-style: italic;
 }
 
+.github-link {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #444;
+}
+
+.github-link p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.github-link a {
+  color: #ff6b35;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.github-link a:hover {
+  color: #f7931e;
+  text-decoration: underline;
+}
+
 .error-message {
   background: #2a1a1a;
   border: 1px solid #cc4444;
