@@ -103,6 +103,7 @@ export class UIManager {
   showCard() {
     if (this.elements.FLOATING_CARD) {
       this.elements.FLOATING_CARD.classList.remove(CSS_CLASSES.HIDDEN);
+      this.elements.FLOATING_CARD.classList.remove('slide-out');
     }
   }
 
@@ -110,13 +111,12 @@ export class UIManager {
    * Hide the floating card with delay
    */
   hideCardWithDelay() {
+    // Wait for the content to be visible, then start the hide sequence
     setTimeout(() => {
-      setTimeout(() => {
-        if (this.elements.FLOATING_CARD) {
-          this.elements.FLOATING_CARD.classList.add(CSS_CLASSES.HIDDEN);
-        }
-      }, CONFIG.CARD_HIDE_DELAY);
-    }, CONFIG.CARD_HIDE_TRANSITION);
+      if (this.elements.FLOATING_CARD) {
+        this.elements.FLOATING_CARD.classList.add('slide-out');
+      }
+    }, CONFIG.CARD_HIDE_DELAY);
   }
 
   /**
