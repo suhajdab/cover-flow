@@ -26,6 +26,113 @@ export class UIManager {
   }
 
   /**
+   * Initialize progress list to show all steps
+   */
+  initializeProgressList() {
+    this.setProgressItemState('connect', 'pending');
+    this.setProgressItemState('fetch', 'pending');
+    this.setProgressItemState('images', 'pending');
+  }
+
+  /**
+   * Set the state of a progress item
+   * @param {string} step - Step name ('connect', 'fetch', 'images')
+   * @param {string} state - State ('pending', 'active', 'completed')
+   * @param {string} status - Optional status text to display
+   */
+  setProgressItemState(step, state, status = '') {
+    const elementKey = `PROGRESS_${step.toUpperCase()}`;
+    const element = this.elements[elementKey];
+
+    if (!element) return;
+
+    // Remove all state classes
+    element.classList.remove('active', 'completed');
+
+    // Add new state class
+    if (state !== 'pending') {
+      element.classList.add(state);
+    }
+
+    // Update status text
+    const statusElement = element.querySelector('.progress-status');
+    if (statusElement && status) {
+      statusElement.textContent = status;
+    }
+  }
+
+  /**
+   * Update connection progress
+   */
+  updateConnectionProgress() {
+    this.setProgressItemState('connect', 'active');
+  }
+
+  /**
+   * Mark connection as completed and start fetch
+   * @param {number} bookCount - Number of books found
+   */
+  updateFetchProgress(bookCount = 0) {
+    this.setProgressItemState('connect', 'completed');
+    this.setProgressItemState('fetch', 'active');
+
+    if (bookCount > 0) {
+      this.setProgressItemState('fetch', 'completed', bookCount.toString());
+    }
+  }
+
+  /**
+   * Update image loading progress
+   * @param {number} loaded - Number of loaded images
+   * @param {number} failed - Number of failed images  
+   * @param {number} total - Total number of images
+   */
+  updateImageLoadingProgress(loaded, failed, total) {
+    this.setProgressItemState('fetch', 'completed');
+    this.setProgressItemState('images', 'active', `${loaded + failed}/${total}`);
+
+    // Update progress bar
+    const percent = total ? Math.round((loaded + failed) / total * 100) : 100;
+    if (this.elements.PROGRESS_BAR_INNER) {
+      this.elements.PROGRESS_BAR_INNER.style.width = percent + '%';
+    }
+
+    // Update progress text with asterisk if there are failed images
+    if (this.elements.PROGRESS_TEXT) {
+      let message = '';
+      if (failed > 0) {
+        message = '*some books may not have accessible images';
+      }
+      this.elements.PROGRESS_TEXT.textContent = message;
+    }
+
+    // Mark as completed when all images are processed
+    if (loaded + failed === total) {
+      this.setProgressItemState('images', 'completed', total.toString());
+    }
+  }
+
+  /**
+   * Update progress with custom message and optional progress bar
+   * @param {string} message - Custom message to display
+   * @param {number} loaded - Number of loaded items (optional)
+   * @param {number} failed - Number of failed items (optional)
+   * @param {number} total - Total number of items (optional)
+   */
+  updateProgressWithMessage(message, loaded = 0, failed = 0, total = 0) {
+    if (total > 0) {
+      const percent = Math.round((loaded + failed) / total * 100);
+      if (this.elements.PROGRESS_BAR_INNER) {
+        this.elements.PROGRESS_BAR_INNER.style.width = percent + '%';
+      }
+    }
+
+    if (this.elements.PROGRESS_TEXT) {
+      this.elements.PROGRESS_TEXT.textContent = message;
+    }
+  }
+
+  /**
    * Update progress bar and text
    * @param {number} loaded - Number of loaded items
    * @param {number} failed - Number of failed items
@@ -40,6 +147,28 @@ export class UIManager {
 
     if (this.elements.PROGRESS_TEXT) {
       this.elements.PROGRESS_TEXT.textContent = `Loading covers: ${loaded + failed} / ${total}`;
+    }
+  }
+
+  /**
+   * Update progress bar and text for image loading
+   * @param {number} loaded - Number of loaded items
+   * @param {number} failed - Number of failed items
+   * @param {number} total - Total number of items
+   */
+  updateImageProgress(loaded, failed, total) {
+    const percent = total ? Math.round((loaded + failed) / total * 100) : 100;
+
+    if (this.elements.PROGRESS_BAR_INNER) {
+      this.elements.PROGRESS_BAR_INNER.style.width = percent + '%';
+    }
+
+    if (this.elements.PROGRESS_TEXT) {
+      let message = `Loading covers: ${loaded + failed} / ${total}`;
+      if (failed > 0) {
+        message += ' *some books may not have accessible images';
+      }
+      this.elements.PROGRESS_TEXT.textContent = message;
     }
   }
 

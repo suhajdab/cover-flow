@@ -86,7 +86,11 @@ export const SELECTORS = {
   BOOK_COUNT: '#book-count',
   PROGRESS_BAR: '#progress-bar',
   PROGRESS_BAR_INNER: '#progress-bar-inner',
-  PROGRESS_TEXT: '#progress-text'
+  PROGRESS_TEXT: '#progress-text',
+  PROGRESS_LIST: '#progress-list',
+  PROGRESS_CONNECT: '#progress-connect',
+  PROGRESS_FETCH: '#progress-fetch',
+  PROGRESS_IMAGES: '#progress-images'
 };
 
 export const CSS_CLASSES = {

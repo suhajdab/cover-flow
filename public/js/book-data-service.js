@@ -7,22 +7,44 @@ export class BookDataService {
   constructor() {
     this.bookData = null;
     this.books = [];
+    this.onProgress = null;
   }
 
   /**
-   * Fetch book data from the API
+   * Set progress callback for RSS parsing
+   * @param {Function} callback - Progress callback function
+   */
+  setProgressCallback(callback) {
+    this.onProgress = callback;
+  }
+
+  /**
+   * Fetch book data from the API with progress tracking
    * @returns {Promise<Object>} Book data response
    */
   async fetchBookData() {
     try {
       const apiEndpoint = Config.buildApiEndpoint();
+
+      // Show connection progress
+      this.onProgress?.('connect');
+
       const response = await fetch(apiEndpoint);
 
       if (!response.ok) {
         throw this.createHttpError(response.status);
       }
 
-      return await response.json();
+      // Show parsing progress
+      this.onProgress?.('fetch');
+
+      const data = await response.json();
+
+      // Show completion with book count
+      const bookCount = data.items?.length || 0;
+      this.onProgress?.('fetch_complete', bookCount);
+
+      return data;
     } catch (error) {
       console.error('Failed to fetch book data:', error);
       throw error;
