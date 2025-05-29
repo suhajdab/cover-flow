@@ -36,9 +36,6 @@ async function initializeApp() {
 
     // Set channel title
     document.getElementById('channel-title').textContent = `${bookData.title}`;
-    // Set book count
-    const bookCount = bookData.total || books.length;
-    document.getElementById('book-count').textContent = `Books: ${bookCount}`;
 
     // Start building the wall
     buildWall();

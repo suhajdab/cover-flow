@@ -83,7 +83,6 @@ export const SELECTORS = {
   COVER_FLOW: '#cover-flow',
   FLOATING_CARD: '#floating-card',
   CHANNEL_TITLE: '#channel-title',
-  BOOK_COUNT: '#book-count',
   PROGRESS_BAR: '#progress-bar',
   PROGRESS_BAR_INNER: '#progress-bar-inner',
   PROGRESS_TEXT: '#progress-text',

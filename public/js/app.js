@@ -48,7 +48,7 @@ export class BookCoverFlowApp {
       this.uiManager.initializeProgressList();
 
       // Set up RSS parsing progress callback
-      this.bookDataService.setProgressCallback((step, bookCount) => {
+      this.bookDataService.setProgressCallback((step, data, page) => {
         switch (step) {
           case 'connect':
             this.uiManager.updateConnectionProgress();
@@ -57,20 +57,20 @@ export class BookCoverFlowApp {
             this.uiManager.setProgressItemState('connect', 'completed');
             this.uiManager.setProgressItemState('fetch', 'active');
             break;
+          case 'channel_title':
+            this.uiManager.updateChannelInfo(data, 0);
+            break;
+          case 'fetch_progress':
+            this.uiManager.updateFetchingProgress(data);
+            break;
           case 'fetch_complete':
-            this.uiManager.updateFetchProgress(bookCount);
+            this.uiManager.updateFetchProgress(data);
             break;
         }
       });
 
       // Load book data
       const books = await this.bookDataService.initialize();
-
-      // Update UI with book info
-      this.uiManager.updateChannelInfo(
-        this.bookDataService.getChannelTitle(),
-        this.bookDataService.getBookCount()
-      );
 
       // Check for empty state
       if (this.uiManager.handleEmptyState(books)) {
@@ -97,6 +97,10 @@ export class BookCoverFlowApp {
 
     // Stop any existing animation
     this.animationController?.stop();
+
+    // Mark fetch as complete and start image loading
+    this.uiManager.setProgressItemState('fetch', 'completed');
+    this.uiManager.setProgressItemState('images', 'active');
 
     // Set up progress callback for image loading
     this.imageLoader.setProgressCallback((loaded, failed, total) => {

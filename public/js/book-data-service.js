@@ -19,32 +19,65 @@ export class BookDataService {
   }
 
   /**
-   * Fetch book data from the API with progress tracking
+   * Fetch book data from the API with polling progress tracking
    * @returns {Promise<Object>} Book data response
    */
   async fetchBookData() {
     try {
-      const apiEndpoint = Config.buildApiEndpoint();
-
       // Show connection progress
       this.onProgress?.('connect');
 
-      const response = await fetch(apiEndpoint);
+      let allItems = [];
+      let totalBooks = 0;
+      let channelTitle = '';
+      let page = 1;
+      let hasMore = true;
 
-      if (!response.ok) {
-        throw this.createHttpError(response.status);
-      }
-
-      // Show parsing progress
+      // Show fetch start
       this.onProgress?.('fetch');
 
-      const data = await response.json();
+      while (hasMore && page <= 20) {
+        const apiEndpoint = Config.buildApiEndpoint() + `&page=${page}&streaming=false`;
 
-      // Show completion with book count
-      const bookCount = data.items?.length || 0;
-      this.onProgress?.('fetch_complete', bookCount);
+        const response = await fetch(apiEndpoint);
 
-      return data;
+        if (!response.ok) {
+          throw this.createHttpError(response.status);
+        }
+
+        const pageData = await response.json();
+
+        // Add items to collection
+        allItems.push(...pageData.items);
+        totalBooks = allItems.length;
+        channelTitle = pageData.title;
+
+        // Update channel title immediately after first page
+        if (page === 1 && channelTitle) {
+          this.onProgress?.('channel_title', channelTitle);
+        }
+
+        // Update progress
+        this.onProgress?.('fetch_progress', totalBooks, page);
+
+        // Check if there are more pages
+        hasMore = pageData.hasMore;
+        page++;
+
+        // Small delay to show progress visually
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      // Show completion
+      this.onProgress?.('fetch_complete', totalBooks);
+
+      return {
+        items: allItems,
+        total: totalBooks,
+        title: channelTitle
+      };
     } catch (error) {
       console.error('Failed to fetch book data:', error);
       throw error;

@@ -69,16 +69,21 @@ export class UIManager {
   }
 
   /**
-   * Mark connection as completed and start fetch
-   * @param {number} bookCount - Number of books found
+   * Update book fetching progress during streaming
+   * @param {number} bookCount - Current number of books fetched
+   */
+  updateFetchingProgress(bookCount) {
+    this.setProgressItemState('connect', 'completed');
+    this.setProgressItemState('fetch', 'active', `${bookCount} books`);
+  }
+
+  /**
+   * Mark fetch as completed and prepare for image loading
+   * @param {number} bookCount - Final number of books found
    */
   updateFetchProgress(bookCount = 0) {
     this.setProgressItemState('connect', 'completed');
-    this.setProgressItemState('fetch', 'active');
-
-    if (bookCount > 0) {
-      this.setProgressItemState('fetch', 'completed', bookCount.toString());
-    }
+    this.setProgressItemState('fetch', 'completed', `${bookCount} books`);
   }
 
   /**
@@ -88,22 +93,12 @@ export class UIManager {
    * @param {number} total - Total number of images
    */
   updateImageLoadingProgress(loaded, failed, total) {
-    this.setProgressItemState('fetch', 'completed');
     this.setProgressItemState('images', 'active', `${loaded + failed}/${total}`);
 
     // Update progress bar
     const percent = total ? Math.round((loaded + failed) / total * 100) : 100;
     if (this.elements.PROGRESS_BAR_INNER) {
       this.elements.PROGRESS_BAR_INNER.style.width = percent + '%';
-    }
-
-    // Update progress text with asterisk if there are failed images
-    if (this.elements.PROGRESS_TEXT) {
-      let message = '';
-      if (failed > 0) {
-        message = '*some books may not have accessible images';
-      }
-      this.elements.PROGRESS_TEXT.textContent = message;
     }
 
     // Mark as completed when all images are processed
@@ -162,14 +157,6 @@ export class UIManager {
     if (this.elements.PROGRESS_BAR_INNER) {
       this.elements.PROGRESS_BAR_INNER.style.width = percent + '%';
     }
-
-    if (this.elements.PROGRESS_TEXT) {
-      let message = `Loading covers: ${loaded + failed} / ${total}`;
-      if (failed > 0) {
-        message += ' *some books may not have accessible images';
-      }
-      this.elements.PROGRESS_TEXT.textContent = message;
-    }
   }
 
   /**
@@ -199,10 +186,6 @@ export class UIManager {
   updateChannelInfo(title, bookCount) {
     if (this.elements.CHANNEL_TITLE) {
       this.elements.CHANNEL_TITLE.textContent = title;
-    }
-
-    if (this.elements.BOOK_COUNT) {
-      this.elements.BOOK_COUNT.textContent = `Books: ${bookCount}`;
     }
   }
 
