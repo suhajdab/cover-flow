@@ -230,8 +230,8 @@ body {
   text-align: right;
 }
 
-.progress-item.completed .progress-status::before {
-  content: "✓";
+.progress-item.completed .progress-status::after {
+  content: " ✓";
   color: #4caf50;
   font-weight: bold;
 }
