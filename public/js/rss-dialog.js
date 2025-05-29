@@ -121,24 +121,44 @@ export class RSSDialog {
     try {
       const urlObj = new URL(url);
 
-      // Check if it's a Goodreads URL
-      if (!urlObj.hostname.includes('goodreads.com')) {
-        throw new Error('Please enter a valid Goodreads RSS feed URL');
+      // Strict hostname validation - only allow goodreads.com and www.goodreads.com
+      if (urlObj.hostname !== 'goodreads.com' && urlObj.hostname !== 'www.goodreads.com') {
+        throw new Error('Please enter a valid Goodreads RSS feed URL (goodreads.com only)');
       }
 
-      // Extract userId from the path
+      // Ensure HTTPS protocol for security
+      if (urlObj.protocol !== 'https:') {
+        throw new Error('Only HTTPS URLs are allowed for security reasons');
+      }
+
+      // Extract userId from the path with strict validation
       // Expected format: /review/list_rss/{userId}
-      const pathMatch = urlObj.pathname.match(/\/review\/list_rss\/(\d+)/);
+      const pathMatch = urlObj.pathname.match(/^\/review\/list_rss\/(\d+)$/);
       if (!pathMatch) {
         throw new Error('Invalid Goodreads RSS URL format. Expected: /review/list_rss/{userId}');
       }
 
       const userId = pathMatch[1];
 
-      // Extract shelf and key from query parameters
+      // Validate userId is reasonable (1-15 digits)
+      if (userId.length > 15) {
+        throw new Error('Invalid user ID format');
+      }
+
+      // Extract shelf and key from query parameters with validation
       const searchParams = new URLSearchParams(urlObj.search);
-      const shelf = searchParams.get('shelf') || 'read';
+      let shelf = searchParams.get('shelf') || 'read';
       const key = searchParams.get('key');
+
+      // Validate shelf parameter - only allow alphanumeric, hyphens, underscores
+      if (!/^[a-zA-Z0-9_-]+$/.test(shelf)) {
+        throw new Error('Invalid shelf name format');
+      }
+
+      // Validate key parameter if present
+      if (key && (key.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(key))) {
+        throw new Error('Invalid key format');
+      }
 
       return { userId, shelf, key };
     } catch (error) {
@@ -170,12 +190,24 @@ export class RSSDialog {
   }
 
   /**
-   * Show error message
+   * Show error message (XSS-safe)
    * @param {string} message - Error message to display
    */
   showError(message) {
-    this.errorElement.textContent = message;
+    // Use textContent instead of innerHTML to prevent XSS
+    this.errorElement.textContent = this.sanitizeText(message);
     this.errorElement.classList.remove('hidden');
+  }
+
+  /**
+   * Sanitize text content to prevent XSS
+   * @param {string} text - Text to sanitize
+   * @returns {string} Sanitized text
+   */
+  sanitizeText(text) {
+    if (typeof text !== 'string') return '';
+    // Remove any HTML tags and limit length
+    return text.replace(/<[^>]*>/g, '').substring(0, 500);
   }
 
   /**
