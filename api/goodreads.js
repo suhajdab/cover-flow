@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const { userId, shelf = 'read', key, page = '1', streaming = 'false' } = req.query;
+    const { userId, shelf = 'read', key, page = '1' } = req.query;
 
     if (!userId) {
       return res.status(400).json({ error: 'Missing required parameter "userId"' });
@@ -39,13 +39,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid page number' });
     }
 
-    // If streaming=false, return single page
-    if (streaming === 'false') {
-      return await handleSinglePage(req, res, userId, shelf, key, pageNum);
-    }
-
-    // Original streaming implementation
-    return await handleStreaming(req, res, userId, shelf, key);
+    return await handleSinglePage(req, res, userId, shelf, key, pageNum);
   } catch (err) {
     console.error('API Error:', err);
 
@@ -103,106 +97,4 @@ async function handleSinglePage(req, res, userId, shelf, key, pageNum) {
     }
     throw error;
   }
-}
-
-async function handleStreaming(req, res, userId, shelf, key) {
-  // Build RSS URL
-  const params = new URLSearchParams({ shelf, sort: 'date_read' });
-  if (key) params.set('key', key);
-  const base = `https://www.goodreads.com/review/list_rss/${userId}?${params}`;
-
-  // Set up streaming response for Server-Sent Events
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Cache-Control');
-  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
-  let title = '';
-  let totalItems = 0;
-
-  for (let page = 1; page <= 20; page++) {
-    const url = `${base}&page=${page}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    try {
-      const xml = await fetch(url, {
-        signal: controller.signal,
-        headers: { 'User-Agent': 'Cover-Flow-App/1.0' }
-      }).then(r => {
-        clearTimeout(timeoutId);
-        if (!r.ok) throw new Error(`Goodreads returned ${r.status} for ${url}`);
-        return r.text();
-      });
-
-      const feed = parser.parse(xml, { ignoreAttributes: false, attributeNamePrefix: '' });
-      const items = feed?.rss?.channel?.item ?? [];
-      title = feed?.rss?.channel?.title ?? '';
-
-      if (items.length > 0) {
-        const pageData = items.map(raw => ({
-          book_id: +raw.book_id,
-          title: raw.title,
-          author_name: raw.author_name,
-          image_url: raw.book_large_image_url || '',
-          read_at: raw.user_read_at,
-          date_added: raw.user_date_added || raw.date_added,
-        }));
-
-        totalItems += pageData.length;
-
-        // Send page data as SSE event
-        const eventData = JSON.stringify({
-          type: 'page',
-          page,
-          title,
-          items: pageData,
-          totalSoFar: totalItems
-        });
-        const chunk = `data: ${eventData}\n\n`;
-
-        res.write(chunk);
-
-        // Force flush the response and add small delay
-        if (res.flush) {
-          res.flush();
-        }
-
-        // Small delay to ensure streaming works properly
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-
-      if (items.length < 100) break;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        const errorData = JSON.stringify({
-          type: 'error',
-          message: 'Request timeout - Goodreads is taking too long to respond'
-        });
-        res.write(`data: ${errorData}\n\n`);
-        return res.end();
-      }
-      const errorData = JSON.stringify({
-        type: 'error',
-        message: error.message
-      });
-      res.write(`data: ${errorData}\n\n`);
-      return res.end();
-    }
-  }
-
-  // Send completion signal
-  const completeData = JSON.stringify({
-    type: 'complete',
-    total: totalItems,
-    shelf,
-    userId,
-    title
-  });
-  res.write(`data: ${completeData}\n\n`);
-
-  return res.end();
 }
