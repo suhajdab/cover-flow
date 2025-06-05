@@ -73,6 +73,10 @@ Visit the deployed application: [Cover Flow](https://cover-flow-beta.vercel.app/
 
 ```
 
+## 🧪 Running Tests
+
+Run `npm test` to execute the Node.js tests.
+
 ## 🤝 Contributing
 
 1. Fork the repository
