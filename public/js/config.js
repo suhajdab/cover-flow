@@ -61,21 +61,27 @@ export const Config = {
 
   /**
    * Build API endpoint URL with current parameters
+   * @param {number} [page] - Optional page number
    * @returns {string} Complete API endpoint URL
    */
-  buildApiEndpoint() {
+  buildApiEndpoint(page) {
     const userId = this.getUserId();
     const shelf = this.getShelf();
     const key = this.getKey();
 
-    let endpoint = `${CONFIG.API_BASE_PATH}?userId=${encodeURIComponent(userId)}&shelf=${encodeURIComponent(shelf)}`;
+    const params = new URLSearchParams({
+      userId,
+      shelf
+    });
 
-    // Add key parameter if it exists
     if (key) {
-      endpoint += `&key=${encodeURIComponent(key)}`;
+      params.set('key', key);
+    }
+    if (page) {
+      params.set('page', page.toString());
     }
 
-    return endpoint;
+    return `${CONFIG.API_BASE_PATH}?${params.toString()}`;
   }
 };
 
