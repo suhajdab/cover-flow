@@ -77,6 +77,14 @@ Visit the deployed application: [Cover Flow](https://cover-flow-beta.vercel.app/
 
 Run `npm test` to execute the Node.js tests.
 
+## 🪝 Git Hooks
+
+Enable the pre-commit hook to automatically run the tests before each commit:
+
+```bash
+git config core.hooksPath githooks
+```
+
 ## 🤝 Contributing
 
 1. Fork the repository
