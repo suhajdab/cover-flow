@@ -1,7 +1,7 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
 
 /**
- * Performance-optimized cover flow renderer with virtual scrolling and efficient DOM management
+ * Cover flow renderer with virtual scrolling and efficient DOM management
  */
 export class CoverFlowRenderer {
   constructor(coverFlowElement) {
@@ -13,32 +13,6 @@ export class CoverFlowRenderer {
       yearTags: []
     };
     this.cachedCalculations = new Map();
-
-    // Set up intersection observer for performance monitoring
-    this.setupPerformanceObserver();
-  }
-
-  /**
-   * Set up performance observer to monitor rendering performance
-   */
-  setupPerformanceObserver() {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach(entry => {
-            if (entry.entryType === 'measure' && entry.name.includes('cover-flow')) {
-              if (entry.duration > 16) { // More than one frame
-                console.warn(`Performance warning: ${entry.name} took ${entry.duration.toFixed(2)}ms`);
-              }
-            }
-          });
-        });
-        observer.observe({ entryTypes: ['measure'] });
-      } catch (e) {
-        // Performance observer not supported
-      }
-    }
   }
 
   /**
@@ -49,8 +23,6 @@ export class CoverFlowRenderer {
     if (this.cachedCalculations.has(cacheKey)) {
       return this.cachedCalculations.get(cacheKey);
     }
-
-    performance.mark('cover-flow-items-start');
 
     const items = [];
     let lastYear = null;
@@ -80,9 +52,6 @@ export class CoverFlowRenderer {
         index: idx
       });
     }
-
-    performance.mark('cover-flow-items-end');
-    performance.measure('cover-flow-items', 'cover-flow-items-start', 'cover-flow-items-end');
 
     // Cache the result
     this.cachedCalculations.set(cacheKey, items);
@@ -243,8 +212,6 @@ export class CoverFlowRenderer {
    * Fill columns with optimized batching and virtual scrolling
    */
   fillColumns(columns, items, height) {
-    performance.mark('cover-flow-fill-start');
-
     let colIdx = 0;
     let repeats = 0;
     let filled = false;
@@ -283,9 +250,6 @@ export class CoverFlowRenderer {
       col.div.appendChild(fragments[index]);
     });
 
-    performance.mark('cover-flow-fill-end');
-    performance.measure('cover-flow-fill', 'cover-flow-fill-start', 'cover-flow-fill-end');
-
     return nextItemIdx;
   }
 
@@ -293,8 +257,6 @@ export class CoverFlowRenderer {
    * Render the wall with all optimizations
    */
   renderWall(books, images, width, height) {
-    performance.mark('cover-flow-render-start');
-
     // Clear container efficiently
     while (this.coverFlow.firstChild) {
       this.coverFlow.removeChild(this.coverFlow.firstChild);
@@ -310,9 +272,6 @@ export class CoverFlowRenderer {
     const fragment = document.createDocumentFragment();
     columns.forEach(col => fragment.appendChild(col.div));
     this.coverFlow.appendChild(fragment);
-
-    performance.mark('cover-flow-render-end');
-    performance.measure('cover-flow-render', 'cover-flow-render-start', 'cover-flow-render-end');
 
     return {
       columns,
@@ -339,18 +298,5 @@ export class CoverFlowRenderer {
     this.elementPool.columns = this.elementPool.columns.slice(0, 50);
     this.elementPool.images = this.elementPool.images.slice(0, 100);
     this.elementPool.yearTags = this.elementPool.yearTags.slice(0, 20);
-  }
-
-  /**
-   * Get performance metrics
-   */
-  getPerformanceMetrics() {
-    return {
-      cachedCalculations: this.cachedCalculations.size,
-      imageCache: this.imageCache.size,
-      columnPool: this.elementPool.columns.length,
-      imagePool: this.elementPool.images.length,
-      yearTagPool: this.elementPool.yearTags.length
-    };
   }
 }
