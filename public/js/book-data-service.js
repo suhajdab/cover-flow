@@ -37,7 +37,7 @@ export class BookDataService {
       this.onProgress?.('fetch');
 
       while (hasMore && page <= 20) {
-        const apiEndpoint = Config.buildApiEndpoint() + `&page=${page}`;
+        const apiEndpoint = Config.buildApiEndpoint(page);
 
         const response = await fetch(apiEndpoint);
 
