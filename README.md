@@ -107,6 +107,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - This project relies on Goodreads RSS feeds, which may change or be discontinued
 - Book cover images are loaded from external sources and may have varying load times
 - The API fetches fresh data on each request to ensure up-to-date information
+- **Screensaver Environment**: When running in a macOS screensaver webview, localStorage and other browser storage mechanisms are not persisted between executions. Each screensaver activation starts with a fresh browser context, so book data and user preferences cannot be cached locally and must be fetched from the API on every run.
 
 ## 🐛 Known Issues
 
