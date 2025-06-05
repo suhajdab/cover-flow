@@ -57,7 +57,7 @@ test('invalid page parameter returns 400', async () => {
 });
 
 test('security headers exist on success', async () => {
-  const mockXml = '<rss><channel><title>Test</title><item></item></channel></rss>';
+  const mockXml = '<rss><channel><title>Test</title><item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name><book_large_image_url></book_large_image_url></item></channel></rss>';
   const originalFetch = global.fetch;
   global.fetch = async () => ({ ok: true, text: async () => mockXml });
 
