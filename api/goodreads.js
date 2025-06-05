@@ -72,8 +72,7 @@ async function handleSinglePage(req, res, userId, shelf, key, pageNum) {
     });
 
     const feed = parser.parse(xml, { ignoreAttributes: false, attributeNamePrefix: '' });
-    let items = feed?.rss?.channel?.item;
-    if (!Array.isArray(items)) items = items ? [items] : [];
+    const items = feed?.rss?.channel?.item ?? [];
     const title = feed?.rss?.channel?.title ?? '';
 
     const pageData = items.map(raw => ({
