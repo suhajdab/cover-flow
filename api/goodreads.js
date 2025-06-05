@@ -1,6 +1,6 @@
 /**
  * Converts Goodreads shelf RSS into clean JSON
- * Query params: userId (required), shelf (optional), key (optional)
+ * Query params: userId (required), shelf (optional), key (optional), page (optional)
  */
 import { XMLParser } from "fast-xml-parser";
 
