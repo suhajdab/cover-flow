@@ -56,7 +56,6 @@ Visit the deployed application: [Cover Flow](https://cover-flow-beta.vercel.app/
 ├── public/
 │ ├── index.html # Main HTML file
 │ ├── styles.css # Global styles
-│ ├── script.js # Legacy script (deprecated)
 │ └── js/ # Modern ES6 modules
 │ ├── app.js # Main application controller
 │ ├── animation-controller.js
