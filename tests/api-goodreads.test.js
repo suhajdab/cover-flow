@@ -76,3 +76,79 @@ test('security headers exist on success', async () => {
 
   global.fetch = originalFetch;
 });
+
+test('invalid sort parameter returns 400', async () => {
+  const req = {
+    method: 'GET',
+    query: { userId: '123', sort: 'invalid-sort!' }
+  };
+  const res = createMockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.data.error, /Invalid sort parameter format/);
+});
+
+test('invalid order parameter returns 400', async () => {
+  const req = {
+    method: 'GET',
+    query: { userId: '123', order: 'invalid' }
+  };
+  const res = createMockRes();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.match(res.data.error, /Invalid order parameter format/);
+});
+
+test('valid sort and order parameters are accepted', async () => {
+  const mockXml = '<rss><channel><title>Test</title>' +
+    '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
+    '<book_large_image_url></book_large_image_url>' +
+    '<user_read_at></user_read_at><date_added></date_added></item>' +
+    '<item><book_id>2</book_id><title>Book2</title><author_name>Auth2</author_name>' +
+    '<book_large_image_url></book_large_image_url>' +
+    '<user_read_at></user_read_at><date_added></date_added></item>' +
+    '</channel></rss>';
+  const originalFetch = global.fetch;
+  let capturedUrl = '';
+  global.fetch = async (url) => {
+    capturedUrl = url;
+    return { ok: true, text: async () => mockXml };
+  };
+
+  const req = { method: 'GET', query: { userId: '123', sort: 'date_added', order: 'd' } };
+  const res = createMockRes();
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.match(capturedUrl, /sort=date_added/);
+  assert.match(capturedUrl, /order=d/);
+
+  global.fetch = originalFetch;
+});
+
+test('default sort is applied when not provided', async () => {
+  const mockXml = '<rss><channel><title>Test</title>' +
+    '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
+    '<book_large_image_url></book_large_image_url>' +
+    '<user_read_at></user_read_at><date_added></date_added></item>' +
+    '<item><book_id>2</book_id><title>Book2</title><author_name>Auth2</author_name>' +
+    '<book_large_image_url></book_large_image_url>' +
+    '<user_read_at></user_read_at><date_added></date_added></item>' +
+    '</channel></rss>';
+  const originalFetch = global.fetch;
+  let capturedUrl = '';
+  global.fetch = async (url) => {
+    capturedUrl = url;
+    return { ok: true, text: async () => mockXml };
+  };
+
+  const req = { method: 'GET', query: { userId: '123' } };
+  const res = createMockRes();
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.match(capturedUrl, /sort=date_read/);
+
+  global.fetch = originalFetch;
+});
+

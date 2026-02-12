@@ -1,6 +1,6 @@
 /**
  * Converts Goodreads shelf RSS into clean JSON
- * Query params: userId (required), shelf (optional), key (optional), page (optional)
+ * Query params: userId (required), shelf (optional), key (optional), page (optional), sort (optional), order (optional)
  */
 import { XMLParser } from "fast-xml-parser";
 
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const { userId, shelf = 'read', key, page = '1' } = req.query;
+    const { userId, shelf = 'read', key, page = '1', sort, order } = req.query;
 
     if (!userId) {
       return res.status(400).json({ error: 'Missing required parameter "userId"' });
@@ -34,12 +34,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid shelf format. Only alphanumeric characters, hyphens, and underscores allowed.' });
     }
 
+    // Validate sort parameter if present - only allow alphanumeric and underscores
+    if (sort && !/^[a-zA-Z0-9_]+$/.test(sort)) {
+      return res.status(400).json({ error: 'Invalid sort parameter format. Only alphanumeric characters and underscores allowed.' });
+    }
+
+    // Validate order parameter if present - only allow 'a' or 'd'
+    if (order && !/^[ad]$/.test(order)) {
+      return res.status(400).json({ error: 'Invalid order parameter format. Must be "a" or "d".' });
+    }
+
     const pageNum = parseInt(page, 10);
     if (isNaN(pageNum) || pageNum < 1) {
       return res.status(400).json({ error: 'Invalid page number' });
     }
 
-    return await handleSinglePage(req, res, userId, shelf, key, pageNum);
+    return await handleSinglePage(req, res, userId, shelf, key, pageNum, sort, order);
   } catch (err) {
     console.error('API Error:', err);
 
@@ -52,9 +62,22 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleSinglePage(req, res, userId, shelf, key, pageNum) {
+async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, order) {
   // Build RSS URL
-  const params = new URLSearchParams({ shelf, sort: 'date_read', page: pageNum.toString() });
+  const params = new URLSearchParams({ shelf, page: pageNum.toString() });
+  
+  // Add sort parameter - use 'date_read' as default if not provided
+  if (sort) {
+    params.set('sort', sort);
+  } else {
+    params.set('sort', 'date_read');
+  }
+  
+  // Add order parameter if provided
+  if (order) {
+    params.set('order', order);
+  }
+  
   if (key) params.set('key', key);
   const url = `https://www.goodreads.com/review/list_rss/${userId}?${params}`;
 

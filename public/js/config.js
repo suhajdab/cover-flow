@@ -51,6 +51,24 @@ export const Config = {
   },
 
   /**
+   * Get sort parameter from URL params
+   * @returns {string|null} Sort parameter or null if not provided
+   */
+  getSort() {
+    const params = this.getUrlParams();
+    return params.get('sort');
+  },
+
+  /**
+   * Get order parameter from URL params
+   * @returns {string|null} Order parameter or null if not provided
+   */
+  getOrder() {
+    const params = this.getUrlParams();
+    return params.get('order');
+  },
+
+  /**
    * Get key from URL params
    * @returns {string|null} API key or null if not provided
    */
@@ -68,6 +86,8 @@ export const Config = {
     const userId = this.getUserId();
     const shelf = this.getShelf();
     const key = this.getKey();
+    const sort = this.getSort();
+    const order = this.getOrder();
 
     const params = new URLSearchParams({
       userId,
@@ -76,6 +96,12 @@ export const Config = {
 
     if (key) {
       params.set('key', key);
+    }
+    if (sort) {
+      params.set('sort', sort);
+    }
+    if (order) {
+      params.set('order', order);
     }
     if (page) {
       params.set('page', page.toString());
