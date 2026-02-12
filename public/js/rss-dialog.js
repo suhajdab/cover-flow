@@ -106,7 +106,7 @@ export class RSSDialog {
 
     try {
       const parsed = this.parseGoodreadsRSSUrl(url);
-      this.redirectToShelf(parsed.userId, parsed.shelf, parsed.key);
+      this.redirectToShelf(parsed.userId, parsed.shelf, parsed.key, parsed.sort, parsed.order);
     } catch (error) {
       this.showError(error.message);
     }
@@ -115,7 +115,7 @@ export class RSSDialog {
   /**
    * Parse Goodreads RSS feed URL to extract userId and shelf
    * @param {string} url - The RSS feed URL
-   * @returns {Object} Object with userId, shelf, and key
+   * @returns {Object} Object with userId, shelf, key, sort, and order
    */
   parseGoodreadsRSSUrl(url) {
     try {
@@ -149,6 +149,8 @@ export class RSSDialog {
       const searchParams = new URLSearchParams(urlObj.search);
       let shelf = searchParams.get('shelf') || 'read';
       const key = searchParams.get('key');
+      const sort = searchParams.get('sort');
+      const order = searchParams.get('order');
 
       // Validate shelf parameter - only allow alphanumeric, hyphens, underscores
       if (!/^[a-zA-Z0-9_-]+$/.test(shelf)) {
@@ -160,7 +162,17 @@ export class RSSDialog {
         throw new Error('Invalid key format');
       }
 
-      return { userId, shelf, key };
+      // Validate sort parameter if present - only allow alphanumeric and underscores
+      if (sort && !/^[a-zA-Z0-9_]+$/.test(sort)) {
+        throw new Error('Invalid sort parameter format');
+      }
+
+      // Validate order parameter if present - only allow 'a' or 'd'
+      if (order && !/^[ad]$/.test(order)) {
+        throw new Error('Invalid order parameter format');
+      }
+
+      return { userId, shelf, key, sort, order };
     } catch (error) {
       if (error instanceof TypeError) {
         throw new Error('Please enter a valid URL');
@@ -174,8 +186,10 @@ export class RSSDialog {
    * @param {string} userId - Goodreads user ID
    * @param {string} shelf - Shelf name
    * @param {string} key - Goodreads API key (optional)
+   * @param {string} sort - Sort parameter (optional)
+   * @param {string} order - Order parameter (optional)
    */
-  redirectToShelf(userId, shelf, key) {
+  redirectToShelf(userId, shelf, key, sort, order) {
     const url = new URL(window.location.href);
     url.searchParams.set('userId', userId);
     url.searchParams.set('shelf', shelf);
@@ -183,6 +197,16 @@ export class RSSDialog {
     // Add key parameter if it exists
     if (key) {
       url.searchParams.set('key', key);
+    }
+
+    // Add sort parameter if it exists
+    if (sort) {
+      url.searchParams.set('sort', sort);
+    }
+
+    // Add order parameter if it exists
+    if (order) {
+      url.searchParams.set('order', order);
     }
 
     // Navigate to the URL with parameters
