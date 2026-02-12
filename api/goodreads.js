@@ -64,14 +64,11 @@ export default async function handler(req, res) {
 
 async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, order) {
   // Build RSS URL
-  const params = new URLSearchParams({ shelf, page: pageNum.toString() });
-  
-  // Add sort parameter - use 'date_read' as default if not provided
-  if (sort) {
-    params.set('sort', sort);
-  } else {
-    params.set('sort', 'date_read');
-  }
+  const params = new URLSearchParams({ 
+    shelf, 
+    sort: sort || 'date_read',
+    page: pageNum.toString() 
+  });
   
   // Add order parameter if provided
   if (order) {
