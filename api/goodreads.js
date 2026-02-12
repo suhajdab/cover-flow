@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const { userId, shelf = 'read', key, page = '1', sort, order } = req.query;
+    const { userId, shelf = 'read', key, page = '1', sort = 'date_read', order } = req.query;
 
     if (!userId) {
       return res.status(400).json({ error: 'Missing required parameter "userId"' });
@@ -66,7 +66,7 @@ async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, ord
   // Build RSS URL
   const params = new URLSearchParams({ 
     shelf, 
-    sort: sort || 'date_read',
+    sort,
     page: pageNum.toString() 
   });
   
