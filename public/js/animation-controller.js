@@ -1,5 +1,4 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
-import { createColumnLayout, findPreviousColumnStartItemIndex } from './cover-flow-renderer.js';
 
 /**
  * Performance-optimized animation controller with GPU acceleration and efficient DOM management
@@ -35,24 +34,15 @@ export class AnimationController {
   /**
    * Start the cover flow animation with optimizations
    */
-  start(columns, colWidth, height, items, initialStartItemIdx = 0) {
+  start(columns, colWidth, items, columnLayouts, nextColumnLayoutIndex = 0) {
     this.stop();
 
     this.coverFlowOffset = 0;
+    this.coverFlow.style.transform = 'translate3d(0px, 0, 0)';
     this.lastTimestamp = null;
     this.currentColumns = [...columns];
     this.isRunning = true;
     this.cachedDimensions.clear();
-
-    // Pre-cache item dimensions
-    this.precacheItemDimensions(items);
-
-    let previousItemIdx = findPreviousColumnStartItemIndex(
-      items,
-      height,
-      initialStartItemIdx,
-      item => this.getItemHeight(item)
-    );
 
     const animateCoverFlow = (timestamp) => {
       if (!this.isRunning) return;
@@ -61,17 +51,14 @@ export class AnimationController {
       const delta = timestamp - this.lastTimestamp;
       this.lastTimestamp = timestamp;
 
-      this.coverFlowOffset += (CONFIG.ANIMATION_SPEED * delta) / 1000;
+      this.coverFlowOffset -= (CONFIG.ANIMATION_SPEED * delta) / 1000;
 
-      // Use cached viewport width to avoid layout thrashing
-      const viewportWidth = this.getCachedViewportWidth();
-
-      while (this.coverFlowOffset >= 0 && items.length > 0) {
-        previousItemIdx = this.addColumnToLeftOptimized(items, height, previousItemIdx);
-        this.coverFlowOffset -= colWidth;
+      while (this.coverFlowOffset <= -colWidth && columnLayouts.length > 0) {
+        this.removeColumnFromLeftOptimized();
+        this.addColumnToRightOptimized(columnLayouts[nextColumnLayoutIndex], items);
+        nextColumnLayoutIndex = (nextColumnLayoutIndex + 1) % columnLayouts.length;
+        this.coverFlowOffset += colWidth;
       }
-
-      this.removeColumnsFromRightOptimized(colWidth, viewportWidth);
 
       // Use transform3d for better performance
       this.coverFlow.style.transform = `translate3d(${this.coverFlowOffset}px, 0, 0)`;
@@ -80,65 +67,6 @@ export class AnimationController {
     };
 
     this.animationFrameId = requestAnimationFrame(animateCoverFlow);
-  }
-
-  /**
-   * Calculate rendered item height using the same rules as column planning
-   */
-  getItemHeight(item) {
-    if (item.type === "year-divider") {
-      return CONFIG.YEAR_TAG_HEIGHT + CONFIG.YEAR_TAG_MARGIN;
-    }
-
-    if (item.type === "book") {
-      return Math.min(
-        item.image.naturalHeight * (CONFIG.COLUMN_WIDTH / item.image.naturalWidth),
-        CONFIG.MAX_IMAGE_HEIGHT
-      );
-    }
-
-    return 0;
-  }
-
-  /**
-   * Pre-cache expensive dimension calculations
-   */
-  precacheItemDimensions(items) {
-    items.forEach((item, index) => {
-      if (item.type === 'book' && item.image) {
-        const cacheKey = `book-${index}`;
-        if (!this.cachedDimensions.has(cacheKey)) {
-          const scaledHeight = Math.min(
-            item.image.naturalHeight * (CONFIG.COLUMN_WIDTH / item.image.naturalWidth),
-            CONFIG.MAX_IMAGE_HEIGHT
-          );
-          this.cachedDimensions.set(cacheKey, scaledHeight);
-        }
-      } else if (item.type === 'year-divider') {
-        const cacheKey = `year-${item.year}`;
-        if (!this.cachedDimensions.has(cacheKey)) {
-          this.cachedDimensions.set(cacheKey, CONFIG.YEAR_TAG_HEIGHT + CONFIG.YEAR_TAG_MARGIN);
-        }
-      }
-    });
-  }
-
-  /**
-   * Get cached viewport width to avoid repeated DOM queries
-   */
-  getCachedViewportWidth() {
-    const now = performance.now();
-    const cacheKey = 'viewport-width';
-    const cached = this.cachedDimensions.get(cacheKey);
-
-    // Cache viewport width for 100ms to avoid excessive DOM queries
-    if (!cached || now - cached.timestamp > 100) {
-      const width = window.innerWidth;
-      this.cachedDimensions.set(cacheKey, { width, timestamp: now });
-      return width;
-    }
-
-    return cached.width;
   }
 
   /**
@@ -204,15 +132,12 @@ export class AnimationController {
   /**
    * Optimized column addition with batched DOM operations
    */
-  addColumnToLeftOptimized(items, height, startItemIdx) {
+  addColumnToRightOptimized(layoutColumn, items) {
     const col = this.createOrReuseColumn();
-    const layout = createColumnLayout(1, items, height, startItemIdx, item => this.getItemHeight(item));
-    this.populateColumnFromLayout(col, layout.columns[0], items);
+    this.populateColumnFromLayout(col, layoutColumn, items);
 
-    this.coverFlow.insertBefore(col.div, this.coverFlow.firstChild);
-    this.currentColumns.unshift(col);
-
-    return findPreviousColumnStartItemIndex(items, height, startItemIdx, item => this.getItemHeight(item));
+    this.coverFlow.appendChild(col.div);
+    this.currentColumns.push(col);
   }
 
   /**
@@ -241,24 +166,15 @@ export class AnimationController {
   /**
    * Optimized column removal with element pooling
    */
-  removeColumnsFromRightOptimized(colWidth, viewportWidth) {
-    while (this.currentColumns.length > 0) {
-      const rightColumnLeft = ((this.currentColumns.length - 1) * colWidth) + this.coverFlowOffset;
+  removeColumnFromLeftOptimized() {
+    const removedColumn = this.currentColumns.shift();
 
-      if (rightColumnLeft < viewportWidth) {
-        return;
-      }
+    if (this.coverFlow.firstChild) {
+      this.coverFlow.removeChild(this.coverFlow.firstChild);
+    }
 
-      const removedColumn = this.currentColumns.pop();
-
-      if (this.coverFlow.lastChild) {
-        this.coverFlow.removeChild(this.coverFlow.lastChild);
-      }
-
-      // Return column to pool for reuse
-      if (this.columnPool.length < 10) { // Limit pool size
-        this.columnPool.push(removedColumn);
-      }
+    if (removedColumn && this.columnPool.length < 10) {
+      this.columnPool.push(removedColumn);
     }
   }
 

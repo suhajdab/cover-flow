@@ -99,7 +99,7 @@ test('invalid order parameter returns 400', async () => {
   assert.match(res.data.error, /Invalid order parameter format/);
 });
 
-test('valid sort and order parameters are accepted', async () => {
+test('valid sort and order parameters cannot override chronological ordering', async () => {
   const mockXml = '<rss><channel><title>Test</title>' +
     '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
     '<book_large_image_url></book_large_image_url>' +
@@ -120,13 +120,13 @@ test('valid sort and order parameters are accepted', async () => {
   await handler(req, res);
 
   assert.equal(res.statusCode, 200);
-  assert.match(capturedUrl, /sort=date_added/);
-  assert.match(capturedUrl, /order=d/);
+  assert.match(capturedUrl, /sort=date_read/);
+  assert.match(capturedUrl, /order=a/);
 
   global.fetch = originalFetch;
 });
 
-test('default sort is applied when not provided', async () => {
+test('default chronological order is applied when not provided', async () => {
   const mockXml = '<rss><channel><title>Test</title>' +
     '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
     '<book_large_image_url></book_large_image_url>' +
@@ -148,6 +148,7 @@ test('default sort is applied when not provided', async () => {
 
   assert.equal(res.statusCode, 200);
   assert.match(capturedUrl, /sort=date_read/);
+  assert.match(capturedUrl, /order=a/);
 
   global.fetch = originalFetch;
 });

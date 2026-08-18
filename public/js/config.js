@@ -87,22 +87,16 @@ export const Config = {
     const userId = this.getUserId();
     const shelf = this.getShelf();
     const key = this.getKey();
-    const sort = this.getSort();
-    const order = this.getOrder();
 
     const params = new URLSearchParams({
       userId,
-      shelf
+      shelf,
+      sort: "date_read",
+      order: "a"
     });
 
     if (key) {
       params.set('key', key);
-    }
-    if (sort) {
-      params.set('sort', sort);
-    }
-    if (order) {
-      params.set('order', order);
     }
     if (page) {
       params.set('page', page.toString());

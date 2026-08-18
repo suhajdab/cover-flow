@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   try {
-    const { userId, shelf = 'read', key, page = '1', sort = 'date_read', order } = req.query;
+    const { userId, shelf = 'read', key, page = '1', sort = 'date_read', order = 'a' } = req.query;
 
     if (!userId) {
       return res.status(400).json({ error: 'Missing required parameter "userId"' });
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid page number' });
     }
 
-    return await handleSinglePage(req, res, userId, shelf, key, pageNum, sort, order);
+    return await handleSinglePage(req, res, userId, shelf, key, pageNum, 'date_read', 'a');
   } catch (err) {
     console.error('API Error:', err);
 
