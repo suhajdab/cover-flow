@@ -3,6 +3,10 @@
     "goodreads"
   ],
   "chat.tools.terminal.autoApprove": {
-    "git push": true
+    "git push": true,
+    "/^node --test(?: tests\\/(?:(?:[A-Za-z0-9_-]+\\/)*[A-Za-z0-9_-]+\\.test\\.js|(?:\\*\\*\\/)?\\*\\.test\\.js))+$/": {
+      "approve": true,
+      "matchCommandLine": true
+    }
   }
 }

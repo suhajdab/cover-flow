@@ -119,9 +119,9 @@ export class BookCoverFlowApp {
       this.animationController.start(
         renderResult.columns,
         renderResult.colWidth,
-        height,
         renderResult.items,
-        renderResult.initialItemIdx
+        renderResult.columnLayouts,
+        renderResult.nextColumnLayoutIndex
       );
 
       // Hide the floating card after a delay
