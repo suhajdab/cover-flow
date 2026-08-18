@@ -1,29 +1,153 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
 
-export function calculateCenteredStartItemIndex(items, height, centerColumnIndex, getItemHeight) {
-  if (items.length === 0 || centerColumnIndex <= 0) {
+function getNextItem(items, itemIdx) {
+  if (items.length <= 1) {
+    return undefined;
+  }
+
+  return items[(itemIdx + 1) % items.length];
+}
+
+function normalizeItemIndex(itemIdx, itemCount) {
+  return ((itemIdx % itemCount) + itemCount) % itemCount;
+}
+
+export function getVisibleRatioInColumn(itemTop, itemHeight, columnHeight) {
+  if (itemHeight <= 0) {
     return 0;
   }
 
-  let startItemIdx = 0;
-
-  for (let column = 0; column < centerColumnIndex; column++) {
-    startItemIdx = rewindColumnStartItemIndex(items, height, startItemIdx, getItemHeight);
-  }
-
-  return startItemIdx;
+  const visibleHeight = Math.max(0, Math.min(itemHeight, columnHeight - itemTop));
+  return visibleHeight / itemHeight;
 }
 
-function rewindColumnStartItemIndex(items, height, nextItemIdx, getItemHeight) {
-  let columnHeight = 0;
-  let itemIdx = nextItemIdx;
+export function createColumnLayout(numCols, items, height, startItemIdx = 0, getItemHeight) {
+  const columns = Array.from({ length: numCols }, () => ({
+    height: 0,
+    entries: []
+  }));
 
-  do {
-    itemIdx = (itemIdx - 1 + items.length) % items.length;
-    columnHeight += getItemHeight(items[itemIdx]);
-  } while (columnHeight < height && itemIdx !== nextItemIdx);
+  if (numCols <= 0 || items.length === 0) {
+    return {
+      columns,
+      nextItemIdx: 0
+    };
+  }
 
-  return itemIdx;
+  let colIdx = 0;
+  let repeats = 0;
+  let filled = false;
+  let nextItemIdx = normalizeItemIndex(startItemIdx, items.length);
+
+  const addLayoutEntry = (item, options = {}) => {
+    const itemHeight = getItemHeight(item);
+    const itemTop = columns[colIdx].height;
+    const entry = {
+      item,
+      isRepeat: options.isRepeat || false,
+      repeatCount: options.repeatCount || 0,
+      top: itemTop,
+      height: itemHeight,
+      visibleRatio: getVisibleRatioInColumn(itemTop, itemHeight, height)
+    };
+
+    columns[colIdx].entries.push(entry);
+    columns[colIdx].height += itemHeight;
+    return entry;
+  };
+
+  const moveToNextColumn = () => {
+    colIdx++;
+    if (colIdx >= columns.length) {
+      filled = true;
+    }
+  };
+
+  const movePastFilledColumns = () => {
+    while (colIdx < columns.length && columns[colIdx].height >= height) {
+      moveToNextColumn();
+    }
+  };
+
+  while (!filled && repeats < CONFIG.MAX_REPEATS) {
+    for (let i = nextItemIdx; i < items.length; ++i) {
+      movePastFilledColumns();
+
+      if (filled) {
+        nextItemIdx = i;
+        break;
+      }
+
+      const item = items[i];
+      const nextItem = getNextItem(items, i);
+
+      if (shouldMoveYearDividerToNextColumn(columns[colIdx].height, item, nextItem, height, getItemHeight)) {
+        moveToNextColumn();
+
+        if (filled) {
+          nextItemIdx = i;
+          break;
+        }
+      }
+
+      const entry = addLayoutEntry(item, { repeatCount: repeats });
+
+      if (shouldRepeatBottomBook(entry, nextItem)) {
+        moveToNextColumn();
+
+        if (filled) {
+          nextItemIdx = i + 1;
+          break;
+        }
+
+        addLayoutEntry(item, { isRepeat: true, repeatCount: repeats });
+      }
+    }
+
+    if (!filled) {
+      colIdx = 0;
+      nextItemIdx = 0;
+      repeats++;
+    }
+  }
+
+  return {
+    columns,
+    nextItemIdx
+  };
+}
+
+export function findPreviousColumnStartItemIndex(items, height, nextItemIdx, getItemHeight) {
+  if (items.length === 0) {
+    return 0;
+  }
+
+  const normalizedNextItemIdx = normalizeItemIndex(nextItemIdx, items.length);
+
+  for (let startItemIdx = 0; startItemIdx < items.length; startItemIdx++) {
+    const layout = createColumnLayout(1, items, height, startItemIdx, getItemHeight);
+
+    if (layout.nextItemIdx === normalizedNextItemIdx) {
+      return startItemIdx;
+    }
+  }
+
+  return normalizeItemIndex(normalizedNextItemIdx - 1, items.length);
+}
+
+function shouldRepeatBottomBook(entry, nextItem) {
+  return entry.item.type === "book"
+    && nextItem?.type !== "year-divider"
+    && !entry.isRepeat
+    && entry.top > 0
+    && entry.visibleRatio < CONFIG.MIN_BOTTOM_COVER_VISIBILITY;
+}
+
+function shouldMoveYearDividerToNextColumn(columnHeight, item, nextItem, height, getItemHeight) {
+  return item.type === "year-divider"
+    && nextItem?.type === "book"
+    && columnHeight > 0
+    && columnHeight + getItemHeight(item) + (getItemHeight(nextItem) * CONFIG.MIN_BOTTOM_COVER_VISIBILITY) > height;
 }
 
 /**
@@ -253,45 +377,27 @@ export class CoverFlowRenderer {
    * Fill columns with optimized batching and virtual scrolling
    */
   fillColumns(columns, items, height, startItemIdx = 0) {
-    let colIdx = 0;
-    let repeats = 0;
-    let filled = false;
-    let nextItemIdx = items.length === 0 ? 0 : startItemIdx % items.length;
-
-    // Use document fragments for efficient DOM manipulation
+    const layout = createColumnLayout(
+      columns.length,
+      items,
+      height,
+      startItemIdx,
+      item => this.getItemHeight(item)
+    );
     const fragments = columns.map(() => document.createDocumentFragment());
 
-    while (!filled && repeats < CONFIG.MAX_REPEATS) {
-      for (let i = nextItemIdx; i < items.length; ++i) {
-        const item = items[i];
-
-        // Move to next column if current is full
-        while (colIdx < columns.length && columns[colIdx].height >= height) {
-          colIdx++;
-        }
-
-        if (colIdx >= columns.length) {
-          filled = true;
-          nextItemIdx = i;
-          break;
-        }
-
-        this.addItemToColumn(columns[colIdx], item, repeats, fragments[colIdx]);
-      }
-
-      if (!filled) {
-        colIdx = 0;
-        nextItemIdx = 0;
-        repeats++;
-      }
-    }
+    layout.columns.forEach((layoutColumn, colIdx) => {
+      layoutColumn.entries.forEach(entry => {
+        this.addItemToColumn(columns[colIdx], entry.item, entry.repeatCount, fragments[colIdx]);
+      });
+    });
 
     // Batch append all fragments
     columns.forEach((col, index) => {
       col.div.appendChild(fragments[index]);
     });
 
-    return nextItemIdx;
+    return layout.nextItemIdx;
   }
 
   /**
@@ -306,13 +412,7 @@ export class CoverFlowRenderer {
     const numCols = Math.ceil(width / CONFIG.COLUMN_WIDTH);
     const items = this.createBookItemsWithYearDividers(books, images);
     const columns = this.createColumns(numCols);
-    const centerColumnIndex = Math.floor(numCols / 2);
-    const initialItemIdx = calculateCenteredStartItemIndex(
-      items,
-      height,
-      centerColumnIndex,
-      item => this.getItemHeight(item)
-    );
+    const initialItemIdx = 0;
 
     const nextItemIdx = this.fillColumns(columns, items, height, initialItemIdx);
 
@@ -324,6 +424,7 @@ export class CoverFlowRenderer {
     return {
       columns,
       items,
+      initialItemIdx,
       nextItemIdx,
       colWidth: CONFIG.COLUMN_WIDTH
     };
