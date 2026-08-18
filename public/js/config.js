@@ -5,6 +5,7 @@ export const CONFIG = {
   MAX_IMAGE_HEIGHT: 320,
   YEAR_TAG_HEIGHT: 60,
   YEAR_TAG_MARGIN: 20,
+  MIN_BOTTOM_COVER_VISIBILITY: 0.75,
 
   // Animation constants
   ANIMATION_SPEED: 30, // pixels per second

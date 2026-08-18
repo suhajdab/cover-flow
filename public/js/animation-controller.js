@@ -1,4 +1,5 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
+import { createColumnLayout, findPreviousColumnStartItemIndex } from './cover-flow-renderer.js';
 
 /**
  * Performance-optimized animation controller with GPU acceleration and efficient DOM management
@@ -34,7 +35,7 @@ export class AnimationController {
   /**
    * Start the cover flow animation with optimizations
    */
-  start(columns, colWidth, height, items, initialNextItemIdx) {
+  start(columns, colWidth, height, items, initialStartItemIdx = 0) {
     this.stop();
 
     this.coverFlowOffset = 0;
@@ -46,7 +47,12 @@ export class AnimationController {
     // Pre-cache item dimensions
     this.precacheItemDimensions(items);
 
-    let nextItemIdx = initialNextItemIdx % items.length;
+    let previousItemIdx = findPreviousColumnStartItemIndex(
+      items,
+      height,
+      initialStartItemIdx,
+      item => this.getItemHeight(item)
+    );
 
     const animateCoverFlow = (timestamp) => {
       if (!this.isRunning) return;
@@ -55,18 +61,17 @@ export class AnimationController {
       const delta = timestamp - this.lastTimestamp;
       this.lastTimestamp = timestamp;
 
-      this.coverFlowOffset -= (CONFIG.ANIMATION_SPEED * delta) / 1000;
+      this.coverFlowOffset += (CONFIG.ANIMATION_SPEED * delta) / 1000;
 
       // Use cached viewport width to avoid layout thrashing
       const viewportWidth = this.getCachedViewportWidth();
-      const wallWidth = this.getWallWidth(colWidth);
 
-      // Add new column when the last column starts to become visible (not when fully visible)
-      if (wallWidth + this.coverFlowOffset <= viewportWidth) {
-        nextItemIdx = this.addColumnToRightOptimized(items, height, nextItemIdx, colWidth);
+      while (this.coverFlowOffset >= 0 && items.length > 0) {
+        previousItemIdx = this.addColumnToLeftOptimized(items, height, previousItemIdx);
+        this.coverFlowOffset -= colWidth;
       }
 
-      this.removeColumnFromLeftOptimized(colWidth);
+      this.removeColumnsFromRightOptimized(colWidth, viewportWidth);
 
       // Use transform3d for better performance
       this.coverFlow.style.transform = `translate3d(${this.coverFlowOffset}px, 0, 0)`;
@@ -75,6 +80,24 @@ export class AnimationController {
     };
 
     this.animationFrameId = requestAnimationFrame(animateCoverFlow);
+  }
+
+  /**
+   * Calculate rendered item height using the same rules as column planning
+   */
+  getItemHeight(item) {
+    if (item.type === "year-divider") {
+      return CONFIG.YEAR_TAG_HEIGHT + CONFIG.YEAR_TAG_MARGIN;
+    }
+
+    if (item.type === "book") {
+      return Math.min(
+        item.image.naturalHeight * (CONFIG.COLUMN_WIDTH / item.image.naturalWidth),
+        CONFIG.MAX_IMAGE_HEIGHT
+      );
+    }
+
+    return 0;
   }
 
   /**
@@ -181,56 +204,62 @@ export class AnimationController {
   /**
    * Optimized column addition with batched DOM operations
    */
-  addColumnToRightOptimized(items, height, nextItemIdx, colWidth) {
+  addColumnToLeftOptimized(items, height, startItemIdx) {
     const col = this.createOrReuseColumn();
+    const layout = createColumnLayout(1, items, height, startItemIdx, item => this.getItemHeight(item));
+    this.populateColumnFromLayout(col, layout.columns[0], items);
 
-    let filled = false;
-    let repeats = 0;
-    let i = nextItemIdx;
-    const fragment = document.createDocumentFragment(); // Batch DOM operations
+    this.coverFlow.insertBefore(col.div, this.coverFlow.firstChild);
+    this.currentColumns.unshift(col);
 
-    while (!filled && repeats < CONFIG.MAX_REPEATS) {
-      for (; i < items.length; ++i) {
-        const item = items[i];
+    return findPreviousColumnStartItemIndex(items, height, startItemIdx, item => this.getItemHeight(item));
+  }
 
-        if (item.type === 'year-divider') {
-          const yearTag = this.createOptimizedYearTag(item.year);
-          fragment.appendChild(yearTag);
-          const cachedHeight = this.cachedDimensions.get(`year-${item.year}`) ||
-            (CONFIG.YEAR_TAG_HEIGHT + CONFIG.YEAR_TAG_MARGIN);
-          col.height += cachedHeight;
-        } else if (item.type === 'book') {
-          const imgNode = this.createOrReuseImage(item, i);
-          fragment.appendChild(imgNode);
+  /**
+   * Populate a column from the shared layout planner
+   */
+  populateColumnFromLayout(col, layoutColumn, items) {
+    const fragment = document.createDocumentFragment();
 
-          const cacheKey = `book-${i}`;
-          const cachedHeight = this.cachedDimensions.get(cacheKey) ||
-            Math.min(
-              item.image.naturalHeight * (CONFIG.COLUMN_WIDTH / item.image.naturalWidth),
-              CONFIG.MAX_IMAGE_HEIGHT
-            );
-          col.height += cachedHeight;
-        }
+    layoutColumn.entries.forEach(entry => {
+      const item = entry.item;
 
-        if (col.height >= height) {
-          filled = true;
-          i++;
-          break;
-        }
+      if (item.type === 'year-divider') {
+        const yearTag = this.createOptimizedYearTag(item.year);
+        fragment.appendChild(yearTag);
+      } else if (item.type === 'book') {
+        const imgNode = this.createOrReuseImage(item, item.index ?? items.indexOf(item));
+        fragment.appendChild(imgNode);
       }
 
-      if (!filled) {
-        i = 0;
-        repeats++;
+      col.height += entry.height;
+    });
+
+    col.div.appendChild(fragment);
+  }
+
+  /**
+   * Optimized column removal with element pooling
+   */
+  removeColumnsFromRightOptimized(colWidth, viewportWidth) {
+    while (this.currentColumns.length > 0) {
+      const rightColumnLeft = ((this.currentColumns.length - 1) * colWidth) + this.coverFlowOffset;
+
+      if (rightColumnLeft < viewportWidth) {
+        return;
+      }
+
+      const removedColumn = this.currentColumns.pop();
+
+      if (this.coverFlow.lastChild) {
+        this.coverFlow.removeChild(this.coverFlow.lastChild);
+      }
+
+      // Return column to pool for reuse
+      if (this.columnPool.length < 10) { // Limit pool size
+        this.columnPool.push(removedColumn);
       }
     }
-
-    // Single DOM append operation
-    col.div.appendChild(fragment);
-    this.coverFlow.appendChild(col.div);
-    this.currentColumns.push(col);
-
-    return i % items.length;
   }
 
   /**
@@ -246,29 +275,6 @@ export class AnimationController {
     yearTag.style.transform = 'translateZ(0)';
 
     return yearTag;
-  }
-
-  /**
-   * Optimized column removal with element pooling
-   */
-  removeColumnFromLeftOptimized(colWidth) {
-    if (this.currentColumns.length === 0) return;
-
-    const leftEdge = this.coverFlowOffset + colWidth;
-    if (leftEdge <= 0) {
-      const removedColumn = this.currentColumns.shift();
-
-      if (this.coverFlow.firstChild) {
-        this.coverFlow.removeChild(this.coverFlow.firstChild);
-      }
-
-      // Return column to pool for reuse
-      if (this.columnPool.length < 10) { // Limit pool size
-        this.columnPool.push(removedColumn);
-      }
-
-      this.coverFlowOffset += colWidth;
-    }
   }
 
   /**
@@ -289,13 +295,6 @@ export class AnimationController {
     if (this.imagePool.size > 500) {
       this.imagePool.clear();
     }
-  }
-
-  /**
-   * Get total width of current wall
-   */
-  getWallWidth(colWidth) {
-    return this.currentColumns.length * colWidth;
   }
 
   /**
