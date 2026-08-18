@@ -1,5 +1,31 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
 
+export function calculateCenteredStartItemIndex(items, height, centerColumnIndex, getItemHeight) {
+  if (items.length === 0 || centerColumnIndex <= 0) {
+    return 0;
+  }
+
+  let startItemIdx = 0;
+
+  for (let column = 0; column < centerColumnIndex; column++) {
+    startItemIdx = rewindColumnStartItemIndex(items, height, startItemIdx, getItemHeight);
+  }
+
+  return startItemIdx;
+}
+
+function rewindColumnStartItemIndex(items, height, nextItemIdx, getItemHeight) {
+  let columnHeight = 0;
+  let itemIdx = nextItemIdx;
+
+  do {
+    itemIdx = (itemIdx - 1 + items.length) % items.length;
+    columnHeight += getItemHeight(items[itemIdx]);
+  } while (columnHeight < height && itemIdx !== nextItemIdx);
+
+  return itemIdx;
+}
+
 /**
  * Cover flow renderer with virtual scrolling and efficient DOM management
  */
@@ -209,13 +235,28 @@ export class CoverFlowRenderer {
   }
 
   /**
+   * Calculate rendered item height using the same rules as column filling
+   */
+  getItemHeight(item) {
+    if (item.type === "year-divider") {
+      return CONFIG.YEAR_TAG_HEIGHT + CONFIG.YEAR_TAG_MARGIN;
+    }
+
+    if (item.type === "book") {
+      return this.calculateScaledHeight(item.image, item.index);
+    }
+
+    return 0;
+  }
+
+  /**
    * Fill columns with optimized batching and virtual scrolling
    */
-  fillColumns(columns, items, height) {
+  fillColumns(columns, items, height, startItemIdx = 0) {
     let colIdx = 0;
     let repeats = 0;
     let filled = false;
-    let nextItemIdx = 0;
+    let nextItemIdx = items.length === 0 ? 0 : startItemIdx % items.length;
 
     // Use document fragments for efficient DOM manipulation
     const fragments = columns.map(() => document.createDocumentFragment());
@@ -265,8 +306,15 @@ export class CoverFlowRenderer {
     const numCols = Math.ceil(width / CONFIG.COLUMN_WIDTH);
     const items = this.createBookItemsWithYearDividers(books, images);
     const columns = this.createColumns(numCols);
+    const centerColumnIndex = Math.floor(numCols / 2);
+    const initialItemIdx = calculateCenteredStartItemIndex(
+      items,
+      height,
+      centerColumnIndex,
+      item => this.getItemHeight(item)
+    );
 
-    const nextItemIdx = this.fillColumns(columns, items, height);
+    const nextItemIdx = this.fillColumns(columns, items, height, initialItemIdx);
 
     // Batch append columns using document fragment
     const fragment = document.createDocumentFragment();
