@@ -1,5 +1,8 @@
 {
   "cSpell.words": [
     "goodreads"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "git push": true
+  }
 }
