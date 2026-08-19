@@ -19,6 +19,22 @@ function createElement() {
     },
     setAttribute(name, value) {
       this.attributes[name] = value;
+    },
+    getAttribute(name) {
+      return this.attributes[name] ?? null;
+    },
+    removeAttribute(name) {
+      delete this.attributes[name];
+    },
+    cloneNode() {
+      return {
+        ...createElement(),
+        attributes: { ...this.attributes },
+        className: this.className,
+        alt: this.alt,
+        draggable: this.draggable,
+        loading: this.loading
+      };
     }
   };
 }
@@ -120,5 +136,76 @@ test("advances through multiple chronological columns in one delayed frame", () 
     global.document = originalDocument;
     global.requestAnimationFrame = originalRequestAnimationFrame;
     global.cancelAnimationFrame = originalCancelAnimationFrame;
+  }
+});
+
+test("adds read_at data to animated book cover images", () => {
+  const originalDocument = global.document;
+  global.document = {
+    createElement,
+    createDocumentFragment() {
+      return { ...createElement(), isFragment: true };
+    }
+  };
+
+  try {
+    const coverFlow = createCoverFlow();
+    const controller = new AnimationController(coverFlow);
+    const image = createElement();
+    const readAt = "Tue Aug 18 00:00:00 -0700 2026";
+
+    controller.addColumnToRightOptimized({
+      entries: [{
+        item: {
+          type: "book",
+          book: { title: "Book", read_at: readAt },
+          image,
+          index: 0
+        },
+        height: 100
+      }]
+    }, []);
+
+    assert.equal(
+      coverFlow.children[0].children[0].getAttribute("data-read-at"),
+      readAt
+    );
+  } finally {
+    global.document = originalDocument;
+  }
+});
+
+test("adds an empty read_at attribute to animated covers without a Goodreads read date", () => {
+  const originalDocument = global.document;
+  global.document = {
+    createElement,
+    createDocumentFragment() {
+      return { ...createElement(), isFragment: true };
+    }
+  };
+
+  try {
+    const coverFlow = createCoverFlow();
+    const controller = new AnimationController(coverFlow);
+    const image = createElement();
+
+    controller.addColumnToRightOptimized({
+      entries: [{
+        item: {
+          type: "book",
+          book: { title: "Book", read_at: "" },
+          image,
+          index: 0
+        },
+        height: 100
+      }]
+    }, []);
+
+    assert.equal(
+      coverFlow.children[0].children[0].getAttribute("data-read-at"),
+      ""
+    );
+  } finally {
+    global.document = originalDocument;
   }
 });
