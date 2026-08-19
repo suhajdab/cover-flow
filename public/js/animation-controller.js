@@ -44,6 +44,14 @@ export class AnimationController {
     this.isRunning = true;
     this.cachedDimensions.clear();
 
+    const getNextColumnLayout = typeof columnLayouts === "function"
+      ? columnLayouts
+      : columnLayouts.length > 0 ? () => {
+          const layoutColumn = columnLayouts[nextColumnLayoutIndex];
+          nextColumnLayoutIndex = (nextColumnLayoutIndex + 1) % columnLayouts.length;
+          return layoutColumn;
+        } : null;
+
     const animateCoverFlow = (timestamp) => {
       if (!this.isRunning) return;
 
@@ -53,10 +61,14 @@ export class AnimationController {
 
       this.coverFlowOffset -= (CONFIG.ANIMATION_SPEED * delta) / 1000;
 
-      while (this.coverFlowOffset <= -colWidth && columnLayouts.length > 0) {
+      while (this.coverFlowOffset <= -colWidth && getNextColumnLayout) {
         this.removeColumnFromLeftOptimized();
-        this.addColumnToRightOptimized(columnLayouts[nextColumnLayoutIndex], items);
-        nextColumnLayoutIndex = (nextColumnLayoutIndex + 1) % columnLayouts.length;
+        const nextColumnLayout = getNextColumnLayout();
+        if (!nextColumnLayout) {
+          break;
+        }
+
+        this.addColumnToRightOptimized(nextColumnLayout, items);
         this.coverFlowOffset += colWidth;
       }
 
@@ -98,6 +110,10 @@ export class AnimationController {
     return div;
   }
 
+  setBookCoverReadAt(imgNode, item) {
+    imgNode.setAttribute("data-read-at", item.book.read_at || "");
+  }
+
   /**
    * Create or reuse image element with optimizations
    */
@@ -105,7 +121,9 @@ export class AnimationController {
     const cacheKey = `${item.book.title}-${itemIndex}`;
 
     if (this.imagePool.has(cacheKey)) {
-      return this.imagePool.get(cacheKey).cloneNode(false);
+      const imgNode = this.imagePool.get(cacheKey).cloneNode(false);
+      this.setBookCoverReadAt(imgNode, item);
+      return imgNode;
     }
 
     const imgNode = item.image.cloneNode(false);
@@ -122,6 +140,7 @@ export class AnimationController {
     imgNode.onload = null;
     imgNode.onerror = null;
     imgNode.removeAttribute('style');
+    this.setBookCoverReadAt(imgNode, item);
 
     // Cache the optimized image
     this.imagePool.set(cacheKey, imgNode);

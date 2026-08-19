@@ -1,5 +1,7 @@
 import { CONFIG, CSS_CLASSES } from './config.js';
 
+const UNKNOWN_READ_YEAR = "n.a.";
+
 function getNextItem(items, itemIdx) {
   if (items.length <= 1) {
     return undefined;
@@ -12,6 +14,13 @@ function normalizeItemIndex(itemIdx, itemCount) {
   return ((itemIdx % itemCount) + itemCount) % itemCount;
 }
 
+function createEmptyLayoutColumn() {
+  return {
+    height: 0,
+    entries: []
+  };
+}
+
 export function getVisibleRatioInColumn(itemTop, itemHeight, columnHeight) {
   if (itemHeight <= 0) {
     return 0;
@@ -21,12 +30,26 @@ export function getVisibleRatioInColumn(itemTop, itemHeight, columnHeight) {
   return visibleHeight / itemHeight;
 }
 
+function addLayoutEntryToColumn(column, item, height, getItemHeight, options = {}) {
+  const itemHeight = getItemHeight(item);
+  const itemTop = column.height;
+  const entry = {
+    item,
+    isRepeat: options.isRepeat || false,
+    repeatCount: options.repeatCount || 0,
+    top: itemTop,
+    height: itemHeight,
+    visibleRatio: getVisibleRatioInColumn(itemTop, itemHeight, height)
+  };
+
+  column.entries.push(entry);
+  column.height += itemHeight;
+  return entry;
+}
+
 export function createColumnLayout(numCols, items, height, startItemIdx = 0, getItemHeight, options = {}) {
   const { wrap = true } = options;
-  const columns = Array.from({ length: numCols }, () => ({
-    height: 0,
-    entries: []
-  }));
+  const columns = Array.from({ length: numCols }, createEmptyLayoutColumn);
 
   if (numCols <= 0 || items.length === 0) {
     return {
@@ -41,20 +64,7 @@ export function createColumnLayout(numCols, items, height, startItemIdx = 0, get
   let nextItemIdx = normalizeItemIndex(startItemIdx, items.length);
 
   const addLayoutEntry = (item, options = {}) => {
-    const itemHeight = getItemHeight(item);
-    const itemTop = columns[colIdx].height;
-    const entry = {
-      item,
-      isRepeat: options.isRepeat || false,
-      repeatCount: options.repeatCount || 0,
-      top: itemTop,
-      height: itemHeight,
-      visibleRatio: getVisibleRatioInColumn(itemTop, itemHeight, height)
-    };
-
-    columns[colIdx].entries.push(entry);
-    columns[colIdx].height += itemHeight;
-    return entry;
+    return addLayoutEntryToColumn(columns[colIdx], item, height, getItemHeight, options);
   };
 
   const moveToNextColumn = () => {
@@ -120,6 +130,123 @@ export function createColumnLayout(numCols, items, height, startItemIdx = 0, get
   return {
     columns,
     nextItemIdx
+  };
+}
+
+export function createContinuousColumnLayoutPlanner(items, height, getItemHeight, startItemIdx = 0) {
+  if (items.length === 0) {
+    return {
+      createNextColumn() {
+        return createEmptyLayoutColumn();
+      },
+      getState() {
+        return {
+          nextItemIdx: 0,
+          repeatCount: 0,
+          hasPendingRepeat: false
+        };
+      }
+    };
+  }
+
+  let nextItemIdx = normalizeItemIndex(startItemIdx, items.length);
+  let repeatCount = 0;
+  let pendingRepeat = null;
+
+  const advanceItemIndex = () => {
+    nextItemIdx++;
+
+    if (nextItemIdx >= items.length) {
+      nextItemIdx = 0;
+      repeatCount++;
+    }
+  };
+
+  const createNextColumn = () => {
+    const column = createEmptyLayoutColumn();
+    let addedItems = 0;
+    const maxItemsPerColumn = items.length * CONFIG.MAX_REPEATS;
+
+    if (pendingRepeat) {
+      pendingRepeat.forEach(repeat => {
+        addLayoutEntryToColumn(column, repeat.item, height, getItemHeight, {
+          isRepeat: true,
+          repeatCount: repeat.repeatCount
+        });
+      });
+      pendingRepeat = null;
+    }
+
+    while (column.height < height && addedItems < maxItemsPerColumn) {
+      const item = items[nextItemIdx];
+      const nextItem = getNextItem(items, nextItemIdx);
+
+      const entry = addLayoutEntryToColumn(column, item, height, getItemHeight, { repeatCount });
+      advanceItemIndex();
+      addedItems++;
+
+      if (shouldRepeatBottomYearDivider(entry)) {
+        pendingRepeat = [{
+          item: entry.item,
+          repeatCount: entry.repeatCount
+        }];
+        break;
+      }
+
+      if (shouldRepeatBottomBook(entry, nextItem)) {
+        pendingRepeat = [{
+          item: entry.item,
+          repeatCount: entry.repeatCount
+        }];
+        break;
+      }
+    }
+
+    return column;
+  };
+
+  return {
+    createNextColumn,
+    getState() {
+      return {
+        nextItemIdx,
+        repeatCount,
+        hasPendingRepeat: pendingRepeat !== null
+      };
+    }
+  };
+}
+
+export function createContinuousColumnWindow(items, height, getItemHeight, visibleColumnCount) {
+  if (items.length === 0 || visibleColumnCount <= 0) {
+    return {
+      layouts: [],
+      getNextColumnLayout() {
+        return createEmptyLayoutColumn();
+      }
+    };
+  }
+
+  const planner = createContinuousColumnLayoutPlanner(items, height, getItemHeight);
+  const layouts = [];
+  const maxColumns = items.length * CONFIG.MAX_REPEATS;
+
+  while (planner.getState().repeatCount === 0 && layouts.length < maxColumns) {
+    layouts.push(planner.createNextColumn());
+  }
+
+  layouts.push(planner.createNextColumn());
+
+  const targetColumnCount = visibleColumnCount + 1;
+  const visibleLayouts = layouts.slice(-targetColumnCount);
+  const emptyLayouts = Array.from(
+    { length: Math.max(0, targetColumnCount - visibleLayouts.length) },
+    createEmptyLayoutColumn
+  );
+
+  return {
+    layouts: [...emptyLayouts, ...visibleLayouts],
+    getNextColumnLayout: planner.createNextColumn
   };
 }
 
@@ -195,6 +322,13 @@ function shouldRepeatBottomBook(entry, nextItem) {
     && entry.visibleRatio < CONFIG.MIN_BOTTOM_COVER_VISIBILITY;
 }
 
+function shouldRepeatBottomYearDivider(entry) {
+  return entry.item.type === "year-divider"
+    && !entry.isRepeat
+    && entry.top > 0
+    && entry.visibleRatio < 1;
+}
+
 function shouldMoveYearDividerToNextColumn(columnHeight, item, nextItem, height, getItemHeight) {
   return item.type === "year-divider"
     && nextItem?.type === "book"
@@ -228,6 +362,7 @@ export class CoverFlowRenderer {
 
     const items = [];
     let lastYear = null;
+    const hasDatedBooks = books.some((book, idx) => images[idx] && this.extractYearFromBook(book) !== null);
 
     // Use for loop for better performance than forEach
     for (let idx = 0; idx < books.length; idx++) {
@@ -235,10 +370,10 @@ export class CoverFlowRenderer {
       const img = images[idx];
       if (!img) continue;
 
-      const currentYear = this.extractYearFromBook(book);
+      const currentYear = this.extractYearFromBook(book) ?? (hasDatedBooks ? UNKNOWN_READ_YEAR : null);
 
       // Add year divider if year changed
-      if (currentYear && currentYear !== lastYear) {
+      if (currentYear !== null && currentYear !== lastYear) {
         items.push({
           type: 'year-divider',
           year: currentYear
@@ -337,6 +472,10 @@ export class CoverFlowRenderer {
     return yearTag;
   }
 
+  setBookCoverReadAt(imgNode, item) {
+    imgNode.setAttribute("data-read-at", item.book.read_at || "");
+  }
+
   /**
    * Create a book cover image element with optimizations
    */
@@ -371,6 +510,7 @@ export class CoverFlowRenderer {
       }
     }
 
+    this.setBookCoverReadAt(imgNode, item);
     return imgNode;
   }
 
@@ -477,16 +617,11 @@ export class CoverFlowRenderer {
 
     const visibleColumnCount = Math.ceil(width / CONFIG.COLUMN_WIDTH);
     const items = this.createBookItemsWithYearDividers(books, images);
-    const columnLayouts = createFiniteColumnLayouts(
+    const terminalWindow = createContinuousColumnWindow(
       items,
       height,
-      item => this.getItemHeight(item)
-    );
-    const wrapTransitionLayout = createWrapTransitionLayout(columnLayouts, items, height);
-    const terminalWindow = createTerminalColumnWindow(
-      columnLayouts,
-      visibleColumnCount,
-      wrapTransitionLayout
+      item => this.getItemHeight(item),
+      visibleColumnCount
     );
     const columns = this.createColumns(terminalWindow.layouts.length);
     this.populateColumnsFromLayouts(columns, terminalWindow.layouts);
@@ -499,8 +634,8 @@ export class CoverFlowRenderer {
     return {
       columns,
       items,
-      columnLayouts: terminalWindow.animationLayouts,
-      nextColumnLayoutIndex: terminalWindow.nextColumnLayoutIndex,
+      columnLayouts: terminalWindow.getNextColumnLayout,
+      nextColumnLayoutIndex: 0,
       colWidth: CONFIG.COLUMN_WIDTH
     };
   }

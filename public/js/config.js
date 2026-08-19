@@ -3,8 +3,8 @@ export const CONFIG = {
   // Layout constants
   COLUMN_WIDTH: 200,
   MAX_IMAGE_HEIGHT: 320,
-  YEAR_TAG_HEIGHT: 60,
-  YEAR_TAG_MARGIN: 20,
+  YEAR_TAG_HEIGHT: 54,
+  YEAR_TAG_MARGIN: 0,
   MIN_BOTTOM_COVER_VISIBILITY: 0.75,
 
   // Animation constants
