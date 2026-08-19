@@ -34,3 +34,99 @@ test("preserves chronological order across API pages", async () => {
     global.window = originalWindow;
   }
 });
+
+test("reports when a lookahead finds books beyond the supported pagination limit", async () => {
+  const originalFetch = global.fetch;
+  const originalSetTimeout = global.setTimeout;
+  const originalWindow = global.window;
+  let requestCount = 0;
+  global.fetch = async () => {
+    requestCount++;
+    return {
+      ok: true,
+      json: async () => ({
+        items: [{ title: `Book ${requestCount}` }],
+        title: "Shelf",
+        hasMore: true
+      })
+    };
+  };
+  global.setTimeout = callback => {
+    callback();
+    return 0;
+  };
+  global.window = { location: { search: "?userId=123&shelf=read" } };
+
+  try {
+    const service = new BookDataService();
+
+    await assert.rejects(
+      service.initialize(),
+      /more than 2,000 books/
+    );
+    assert.equal(requestCount, 21);
+  } finally {
+    global.fetch = originalFetch;
+    global.setTimeout = originalSetTimeout;
+    global.window = originalWindow;
+  }
+});
+
+test("accepts exactly 2,000 books after an empty lookahead page", async () => {
+  const originalFetch = global.fetch;
+  const originalSetTimeout = global.setTimeout;
+  const originalWindow = global.window;
+  const pageItems = Array.from({ length: 100 }, (_, index) => ({ title: `Book ${index}` }));
+  let requestCount = 0;
+  global.fetch = async () => {
+    requestCount++;
+    return {
+      ok: true,
+      json: async () => ({
+        items: requestCount <= 20 ? pageItems : [],
+        title: "Shelf",
+        hasMore: requestCount <= 20
+      })
+    };
+  };
+  global.setTimeout = callback => {
+    callback();
+    return 0;
+  };
+  global.window = { location: { search: "?userId=123&shelf=read" } };
+
+  try {
+    const service = new BookDataService();
+    const books = await service.initialize();
+
+    assert.equal(books.length, 2000);
+    assert.equal(requestCount, 21);
+  } finally {
+    global.fetch = originalFetch;
+    global.setTimeout = originalSetTimeout;
+    global.window = originalWindow;
+  }
+});
+
+test("destroy aborts an in-flight API request", async () => {
+  const originalFetch = global.fetch;
+  const originalWindow = global.window;
+  global.fetch = (url, options) => new Promise((resolve, reject) => {
+    options.signal.addEventListener("abort", () => {
+      reject(new DOMException("Aborted", "AbortError"));
+    });
+  });
+  global.window = { location: { search: "?userId=123&shelf=read" } };
+
+  try {
+    const service = new BookDataService();
+    const initialization = service.initialize();
+
+    service.destroy();
+
+    await assert.rejects(initialization, { name: "AbortError" });
+  } finally {
+    global.fetch = originalFetch;
+    global.window = originalWindow;
+  }
+});

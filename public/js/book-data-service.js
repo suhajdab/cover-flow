@@ -8,6 +8,7 @@ export class BookDataService {
     this.bookData = null;
     this.books = [];
     this.onProgress = null;
+    this.requestController = null;
   }
 
   /**
@@ -23,6 +24,10 @@ export class BookDataService {
    * @returns {Promise<Object>} Book data response
    */
   async fetchBookData() {
+    this.requestController?.abort();
+    const requestController = new AbortController();
+    this.requestController = requestController;
+
     try {
       // Show connection progress
       this.onProgress?.('connect');
@@ -37,9 +42,12 @@ export class BookDataService {
       this.onProgress?.('fetch');
 
       while (hasMore && page <= 20) {
-        const apiEndpoint = Config.buildApiEndpoint(page);
+        const request = Config.buildApiRequest(page);
 
-        const response = await fetch(apiEndpoint);
+        const response = await fetch(request.url, {
+          ...request.options,
+          signal: requestController.signal
+        });
 
         if (!response.ok) {
           throw this.createHttpError(response.status);
@@ -70,6 +78,23 @@ export class BookDataService {
         }
       }
 
+      if (hasMore) {
+        const lookaheadRequest = Config.buildApiRequest(21);
+        const lookaheadResponse = await fetch(lookaheadRequest.url, {
+          ...lookaheadRequest.options,
+          signal: requestController.signal
+        });
+
+        if (!lookaheadResponse.ok) {
+          throw this.createHttpError(lookaheadResponse.status);
+        }
+
+        const lookaheadData = await lookaheadResponse.json();
+        if (lookaheadData.items.length > 0) {
+          throw new Error("This shelf contains more than 2,000 books and cannot be loaded completely.");
+        }
+      }
+
       // Show completion
       this.onProgress?.('fetch_complete', totalBooks);
 
@@ -79,8 +104,14 @@ export class BookDataService {
         title: channelTitle
       };
     } catch (error) {
-      console.error('Failed to fetch book data:', error);
+      if (error.name !== "AbortError") {
+        console.error('Failed to fetch book data:', error);
+      }
       throw error;
+    } finally {
+      if (this.requestController === requestController) {
+        this.requestController = null;
+      }
     }
   }
 
@@ -140,5 +171,11 @@ export class BookDataService {
    */
   getChannelTitle() {
     return this.bookData?.title || 'Book Collection';
+  }
+
+  destroy() {
+    this.requestController?.abort();
+    this.requestController = null;
+    this.onProgress = null;
   }
 }

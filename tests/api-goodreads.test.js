@@ -24,13 +24,56 @@ test('invalid userId returns 400', async () => {
   assert.equal(res.data.error, 'Invalid userId format. Must be numeric.');
 });
 
-test('rejects non-GET methods', async () => {
+test('rejects unsupported methods', async () => {
   const req = { method: 'POST', query: {} };
   const res = createMockRes();
   await handler(req, res);
   assert.equal(res.statusCode, 405);
   assert.equal(res.data.error, 'Method not allowed');
   assert.equal(res.headers.Allow, 'GET');
+});
+
+test("accepts a feed key in the GET query", async () => {
+  const mockXml = "<rss><channel><title>Test</title></channel></rss>";
+  const originalFetch = global.fetch;
+  let capturedUrl = "";
+  global.fetch = async url => {
+    capturedUrl = url;
+    return { ok: true, text: async () => mockXml };
+  };
+
+  try {
+    const req = {
+      method: "GET",
+      query: { userId: "123", key: "private-key" }
+    };
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(new URL(capturedUrl).searchParams.get("key"), "private-key");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("allows page 21 only for pagination lookahead", async () => {
+  const mockXml = "<rss><channel><title>Test</title></channel></rss>";
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: true, text: async () => mockXml });
+
+  try {
+    const page21Res = createMockRes();
+    await handler({ method: "GET", query: { userId: "123", page: "21" } }, page21Res);
+    assert.equal(page21Res.statusCode, 200);
+
+    const page22Res = createMockRes();
+    await handler({ method: "GET", query: { userId: "123", page: "22" } }, page22Res);
+    assert.equal(page22Res.statusCode, 400);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('invalid shelf input returns 400', async () => {
@@ -54,6 +97,42 @@ test('invalid page parameter returns 400', async () => {
   await handler(req, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.data.error, /Invalid page number/);
+});
+
+test("malformed page parameter returns 400", async () => {
+  const req = {
+    method: "GET",
+    query: { userId: "123", page: "1junk" }
+  };
+  const res = createMockRes();
+
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.data.error, /Invalid page number/);
+});
+
+test("single-item feeds return one book", async () => {
+  const mockXml = "<rss><channel><title>Test</title>" +
+    "<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>" +
+    "<book_large_image_url></book_large_image_url></item>" +
+    "</channel></rss>";
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({ ok: true, text: async () => mockXml });
+
+  try {
+    const req = { method: "GET", query: { userId: "123" } };
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.data.items.length, 1);
+    assert.equal(res.data.items[0].title, "Book");
+    assert.equal(res.data.hasMore, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('security headers exist on success', async () => {

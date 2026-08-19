@@ -74,16 +74,15 @@ export const Config = {
    * @returns {string|null} API key or null if not provided
    */
   getKey() {
-    const params = this.getUrlParams();
-    return params.get('key');
+    return this.getUrlParams().get("key");
   },
 
   /**
-   * Build API endpoint URL with current parameters
+   * Build API request with current parameters
    * @param {number} [page] - Optional page number
-   * @returns {string} Complete API endpoint URL
+   * @returns {{url: string, options: RequestInit}} API URL and fetch options
    */
-  buildApiEndpoint(page) {
+  buildApiRequest(page) {
     const userId = this.getUserId();
     const shelf = this.getShelf();
     const key = this.getKey();
@@ -96,13 +95,16 @@ export const Config = {
     });
 
     if (key) {
-      params.set('key', key);
+      params.set("key", key);
     }
     if (page) {
       params.set('page', page.toString());
     }
 
-    return `${CONFIG.API_BASE_PATH}?${params.toString()}`;
+    return {
+      url: `${CONFIG.API_BASE_PATH}?${params.toString()}`,
+      options: {}
+    };
   }
 };
 

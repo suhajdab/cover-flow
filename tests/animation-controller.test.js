@@ -139,6 +139,53 @@ test("advances through multiple chronological columns in one delayed frame", () 
   }
 });
 
+test("bounds DOM updates after a long animation pause", () => {
+  const originalRequestAnimationFrame = global.requestAnimationFrame;
+  const originalCancelAnimationFrame = global.cancelAnimationFrame;
+  const frames = [];
+  global.requestAnimationFrame = callback => {
+    frames.push(callback);
+    return frames.length;
+  };
+  global.cancelAnimationFrame = () => {};
+
+  try {
+    const coverFlow = createCoverFlow();
+    const initialColumns = Array.from({ length: 4 }, () => ({ div: createElement(), height: 0 }));
+    const columnLayouts = [2024, 2025, 2026].map(year => ({
+      height: 80,
+      entries: [{ item: { type: "year-divider", year }, height: 80 }]
+    }));
+    let nextLayoutIndex = 0;
+    let skippedLayouts = 0;
+    const getNextColumnLayout = () => {
+      const layout = columnLayouts[nextLayoutIndex];
+      nextLayoutIndex = (nextLayoutIndex + 1) % columnLayouts.length;
+      return layout;
+    };
+    getNextColumnLayout.skipColumns = count => {
+      skippedLayouts += count;
+      nextLayoutIndex = (nextLayoutIndex + count) % columnLayouts.length;
+    };
+    const controller = new AnimationController(coverFlow);
+    let additions = 0;
+    let removals = 0;
+    controller.addColumnToRightOptimized = () => additions++;
+    controller.removeColumnFromLeftOptimized = () => removals++;
+
+    controller.start(initialColumns, 200, [], getNextColumnLayout);
+    frames.shift()(1000);
+    frames.shift()(86401000);
+
+    assert.ok(skippedLayouts > 0);
+    assert.ok(additions <= initialColumns.length);
+    assert.ok(removals <= initialColumns.length);
+  } finally {
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  }
+});
+
 test("adds read_at data to animated book cover images", () => {
   const originalDocument = global.document;
   global.document = {

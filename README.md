@@ -7,13 +7,39 @@ A beautiful, animated visualization of your Goodreads library that displays your
 - **Animated Cover Flow**: Smooth horizontal scrolling animation of book covers
 - **Goodreads Integration**: Fetches books directly from your Goodreads shelves
 - **Progress Tracking**: Visual progress bar and reading statistics
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Desktop Screensaver Display**: Designed for full-screen, unattended playback
 - **Fast Performance**: Optimized image loading and caching
 - **Clean API**: RESTful endpoint that converts Goodreads RSS to clean JSON
 
 ## 🚀 Live Demo
 
 Visit the deployed application: [Cover Flow](https://cover-flow-beta.vercel.app/)
+
+## Intended Usage
+
+Cover Flow is a desktop-only ambient display whose primary host is a macOS screensaver using a native WebKit frame or web view. The host loads the app as a top-level webpage and can provide only its launch URL. It is not intended for mobile, touch, responsive layouts, or HTML `<iframe>` embedding.
+
+The launch URL is the complete runtime configuration. A screensaver URL should include:
+
+- `userId`: Goodreads user ID; required to bypass the setup dialog
+- `shelf`: Goodreads shelf; optional, defaults to `read`
+- `key`: private Goodreads RSS feed key when the shelf requires it
+
+```text
+https://cover-flow-beta.vercel.app/?userId=123&shelf=read&key=YOUR_PRIVATE_KEY
+```
+
+The feed key remains in the URL by design because the screensaver cannot supply request bodies, custom headers, or persistent credentials. Treat the full launch URL and access logs containing query strings as sensitive; this exposure is an accepted constraint of the host integration. Frontend-to-API requests remain `GET` requests, and startup configuration must remain recoverable from URL query parameters unless the screensaver integration changes.
+
+Each screensaver activation may start with a fresh WebKit context. The app must not depend on cookies, `localStorage`, `sessionStorage`, service workers, or a previous execution. It fetches current book data and cover images on every launch.
+
+Runtime assumptions:
+
+- A modern desktop WebKit runtime with JavaScript modules, `fetch`, `AbortController`, CSS transforms, and `requestAnimationFrame`
+- HTTPS network access to the deployed app, its Vercel API, Goodreads, and configured cover-image hosts
+- A full desktop viewport suitable for continuous, automatic animation after startup
+
+Opening the site in a normal desktop browser is a secondary setup and preview workflow. Without `userId` in the URL, the RSS dialog accepts a Goodreads feed URL and redirects to a self-contained launch URL suitable for the screensaver.
 
 ## 🛠️ Tech Stack
 
@@ -106,7 +132,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - This project relies on Goodreads RSS feeds, which may change or be discontinued
 - Book cover images are loaded from external sources and may have varying load times
 - The API fetches fresh data on each request to ensure up-to-date information
-- **Screensaver Environment**: When running in a macOS screensaver webview, localStorage and other browser storage mechanisms are not persisted between executions. Each screensaver activation starts with a fresh browser context, so book data and user preferences cannot be cached locally and must be fetched from the API on every run.
 
 ## 🐛 Known Issues
 

@@ -205,8 +205,15 @@ export function createContinuousColumnLayoutPlanner(items, height, getItemHeight
     return column;
   };
 
+  const skipColumns = count => {
+    for (let index = 0; index < count; index++) {
+      createNextColumn();
+    }
+  };
+
   return {
     createNextColumn,
+    skipColumns,
     getState() {
       return {
         nextItemIdx,
@@ -246,7 +253,9 @@ export function createContinuousColumnWindow(items, height, getItemHeight, visib
 
   return {
     layouts: [...emptyLayouts, ...visibleLayouts],
-    getNextColumnLayout: planner.createNextColumn
+    getNextColumnLayout: Object.assign(planner.createNextColumn, {
+      skipColumns: planner.skipColumns
+    })
   };
 }
 

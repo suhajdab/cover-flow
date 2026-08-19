@@ -194,9 +194,10 @@ export class RSSDialog {
     url.searchParams.set('userId', userId);
     url.searchParams.set('shelf', shelf);
 
-    // Add key parameter if it exists
     if (key) {
-      url.searchParams.set('key', key);
+      url.searchParams.set("key", key);
+    } else {
+      url.searchParams.delete("key");
     }
 
     // Add sort parameter if it exists
@@ -251,12 +252,12 @@ export class RSSDialog {
   }
 
   /**
-   * Check if query parameters exist in current URL
-   * @returns {boolean} True if userId or shelf parameters exist
+   * Check whether the current URL has a valid Goodreads user ID parameter
+   * @returns {boolean} True when userId contains 1 to 15 digits
    */
-  static hasRequiredParams() {
+  static hasValidUserIdParam() {
     const params = new URLSearchParams(window.location.search);
-    // Check if we have actual parameters (not just using defaults)
-    return params.has('userId') || params.has('shelf');
+    const userId = params.get("userId");
+    return typeof userId === "string" && /^\d{1,15}$/.test(userId);
   }
 }

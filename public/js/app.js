@@ -18,16 +18,19 @@ export class BookCoverFlowApp {
     // Initialize components that need DOM elements
     this.coverFlowRenderer = null;
     this.animationController = null;
+    this.destroyed = false;
+    this.buildGeneration = 0;
 
     // Bind methods
     this.handleResize = this.debounce(this.handleResize.bind(this), 250);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
   }  /**
    * Initialize the application
    */
   async initialize() {
     try {
       // Check if we have required query parameters
-      if (!RSSDialog.hasRequiredParams()) {
+      if (!RSSDialog.hasValidUserIdParam()) {
         this.showRSSDialog();
         return;
       }
@@ -49,6 +52,8 @@ export class BookCoverFlowApp {
 
       // Set up RSS parsing progress callback
       this.bookDataService.setProgressCallback((step, data, page) => {
+        if (this.destroyed) return;
+
         switch (step) {
           case 'connect':
             this.uiManager.updateConnectionProgress();
@@ -71,6 +76,7 @@ export class BookCoverFlowApp {
 
       // Load book data
       const books = await this.bookDataService.initialize();
+      if (this.destroyed) return;
 
       // Check for empty state
       if (this.uiManager.handleEmptyState(books)) {
@@ -81,6 +87,7 @@ export class BookCoverFlowApp {
       await this.buildWall();
 
     } catch (error) {
+      if (this.destroyed) return;
       this.uiManager.showError(error);
     }
   }
@@ -89,6 +96,7 @@ export class BookCoverFlowApp {
    * Build the book cover wall
    */
   async buildWall() {
+    const buildGeneration = ++this.buildGeneration;
     const books = this.bookDataService.getBooks();
 
     if (this.uiManager.handleEmptyState(books)) {
@@ -110,6 +118,11 @@ export class BookCoverFlowApp {
     try {
       // Load images
       const images = await this.imageLoader.preloadImages(books);
+      if (this.destroyed || buildGeneration !== this.buildGeneration) return;
+
+      if (this.uiManager.handleNoUsableImages(images)) {
+        return;
+      }
 
       // Render the wall
       const { width, height } = this.uiManager.getViewportSize();
@@ -128,6 +141,7 @@ export class BookCoverFlowApp {
       this.uiManager.hideCardWithDelay();
 
     } catch (error) {
+      if (this.destroyed || buildGeneration !== this.buildGeneration) return;
       console.error('Failed to build wall:', error);
       this.uiManager.showError(error);
     }
@@ -147,6 +161,8 @@ export class BookCoverFlowApp {
    * Handle window resize events with performance awareness
    */
   handleResize() {
+    if (this.destroyed) return;
+
     if (this.animationController?.isAnimationRunning()) {
       // Clean up resources before rebuild
       this.coverFlowRenderer.cleanup();
@@ -159,14 +175,14 @@ export class BookCoverFlowApp {
    */
   setupEventListeners() {
     window.addEventListener('resize', this.handleResize);
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
 
-    // Add debugging hotkeys
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'c' && e.ctrlKey) {
-        e.preventDefault();
-        this.cleanupResources();
-      }
-    });
+  handleKeyDown(event) {
+    if (event.key === 'c' && event.ctrlKey) {
+      event.preventDefault();
+      this.cleanupResources();
+    }
   }
 
   /**
@@ -183,9 +199,15 @@ export class BookCoverFlowApp {
    * Clean up all resources
    */
   destroy() {
+    this.destroyed = true;
+    this.buildGeneration++;
+    this.bookDataService.destroy?.();
+    this.imageLoader.cancel?.();
     this.animationController?.destroy?.();
     this.coverFlowRenderer?.cleanup();
+    this.uiManager.destroy?.();
     window.removeEventListener('resize', this.handleResize);
+    document.removeEventListener('keydown', this.handleKeyDown);
   }
 
   /**
