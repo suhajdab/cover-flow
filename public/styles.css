@@ -347,6 +347,10 @@ body {
   font-style: italic;
 }
 
+.help-text p {
+  overflow-wrap: anywhere;
+}
+
 .github-link {
   text-align: center;
   margin-bottom: 1rem;

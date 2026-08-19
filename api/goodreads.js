@@ -7,7 +7,7 @@ import { XMLParser } from "fast-xml-parser";
 const parser = new XMLParser();
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== "GET") {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -26,30 +26,39 @@ export default async function handler(req, res) {
     }
 
     // Validate inputs to prevent SSRF attacks
-    if (!/^\d+$/.test(userId)) {
+    if (typeof userId !== "string" || userId.length > 15 || !/^\d+$/.test(userId)) {
       return res.status(400).json({ error: 'Invalid userId format. Must be numeric.' });
     }
 
-    if (shelf && !/^[a-zA-Z0-9_-]+$/.test(shelf)) {
+    if (typeof shelf !== "string" || shelf.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(shelf)) {
       return res.status(400).json({ error: 'Invalid shelf format. Only alphanumeric characters, hyphens, and underscores allowed.' });
     }
 
+    if (key !== undefined && key !== null &&
+        (typeof key !== "string" || key.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(key))) {
+      return res.status(400).json({ error: "Invalid key format" });
+    }
+
     // Validate sort parameter if present - only allow alphanumeric and underscores
-    if (sort && !/^[a-zA-Z0-9_]+$/.test(sort)) {
+    if (typeof sort !== "string" || !/^[a-zA-Z0-9_]+$/.test(sort)) {
       return res.status(400).json({ error: 'Invalid sort parameter format. Only alphanumeric characters and underscores allowed.' });
     }
 
     // Validate order parameter if present - only allow 'a' or 'd'
-    if (order && !/^[ad]$/.test(order)) {
+    if (typeof order !== "string" || !/^[ad]$/.test(order)) {
       return res.status(400).json({ error: 'Invalid order parameter format. Must be "a" or "d".' });
     }
 
-    const pageNum = parseInt(page, 10);
-    if (isNaN(pageNum) || pageNum < 1) {
+    if (typeof page !== "string" || !/^\d+$/.test(page)) {
       return res.status(400).json({ error: 'Invalid page number' });
     }
 
-    return await handleSinglePage(req, res, userId, shelf, key, pageNum, 'date_read', 'a');
+    const pageNum = Number(page);
+    if (!Number.isSafeInteger(pageNum) || pageNum < 1 || pageNum > 21) {
+      return res.status(400).json({ error: 'Invalid page number' });
+    }
+
+    return await handleSinglePage(res, userId, shelf, key, pageNum, 'date_read', 'a');
   } catch (err) {
     console.error('API Error:', err);
 
@@ -62,7 +71,7 @@ export default async function handler(req, res) {
   }
 }
 
-async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, order) {
+async function handleSinglePage(res, userId, shelf, key, pageNum, sort, order) {
   // Build RSS URL
   const params = new URLSearchParams({ 
     shelf, 
@@ -82,17 +91,16 @@ async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, ord
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const xml = await fetch(url, {
+    const response = await fetch(url, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Cover-Flow-App/1.0' }
-    }).then(r => {
-      clearTimeout(timeoutId);
-      if (!r.ok) throw new Error(`Goodreads returned ${r.status} for ${url}`);
-      return r.text();
     });
+    if (!response.ok) throw new Error(`Goodreads returned ${response.status}`);
+    const xml = await response.text();
 
     const feed = parser.parse(xml, { ignoreAttributes: false, attributeNamePrefix: '' });
-    const items = feed?.rss?.channel?.item ?? [];
+    const parsedItems = feed?.rss?.channel?.item;
+    const items = Array.isArray(parsedItems) ? parsedItems : parsedItems ? [parsedItems] : [];
     const title = feed?.rss?.channel?.title ?? '';
 
     const pageData = items.map(raw => ({
@@ -111,10 +119,11 @@ async function handleSinglePage(req, res, userId, shelf, key, pageNum, sort, ord
       hasMore: items.length === 100 // Goodreads returns 100 items per page
     });
   } catch (error) {
-    clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
       return res.status(504).json({ error: 'Request timeout - Goodreads is taking too long to respond' });
     }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }

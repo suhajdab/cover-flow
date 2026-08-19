@@ -44,6 +44,9 @@ export class AnimationController {
     this.isRunning = true;
     this.cachedDimensions.clear();
 
+    let skipColumnLayouts = typeof columnLayouts?.skipColumns === "function"
+      ? columnLayouts.skipColumns
+      : null;
     const getNextColumnLayout = typeof columnLayouts === "function"
       ? columnLayouts
       : columnLayouts.length > 0 ? () => {
@@ -51,6 +54,12 @@ export class AnimationController {
           nextColumnLayoutIndex = (nextColumnLayoutIndex + 1) % columnLayouts.length;
           return layoutColumn;
         } : null;
+
+    if (!skipColumnLayouts && Array.isArray(columnLayouts) && columnLayouts.length > 0) {
+      skipColumnLayouts = count => {
+        nextColumnLayoutIndex = (nextColumnLayoutIndex + count) % columnLayouts.length;
+      };
+    }
 
     const animateCoverFlow = (timestamp) => {
       if (!this.isRunning) return;
@@ -60,6 +69,17 @@ export class AnimationController {
       this.lastTimestamp = timestamp;
 
       this.coverFlowOffset -= (CONFIG.ANIMATION_SPEED * delta) / 1000;
+
+      const requiredColumnUpdates = colWidth > 0
+        ? Math.floor(-this.coverFlowOffset / colWidth)
+        : 0;
+      const maximumDOMUpdates = this.currentColumns.length;
+      const skippedColumnUpdates = Math.max(0, requiredColumnUpdates - maximumDOMUpdates);
+
+      if (skippedColumnUpdates > 0) {
+        skipColumnLayouts?.(skippedColumnUpdates);
+        this.coverFlowOffset += skippedColumnUpdates * colWidth;
+      }
 
       while (this.coverFlowOffset <= -colWidth && getNextColumnLayout) {
         this.removeColumnFromLeftOptimized();

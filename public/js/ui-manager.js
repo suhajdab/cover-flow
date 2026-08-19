@@ -6,6 +6,7 @@ import { SELECTORS, CSS_CLASSES, CONFIG } from './config.js';
 export class UIManager {
   constructor() {
     this.elements = this.initializeElements();
+    this.hideCardTimer = null;
   }
 
   /**
@@ -198,6 +199,8 @@ export class UIManager {
 
     if (error.message.includes('Authentication failed')) {
       errorMessage = 'API authentication failed. Server needs to be updated.';
+    } else if (error.message.includes("more than 2,000 books")) {
+      errorMessage = "This shelf has more than 2,000 books and cannot be displayed completely.";
     } else if (error.message.includes('fetch')) {
       errorMessage = 'Network error. Check your connection and try again.';
     }
@@ -224,7 +227,8 @@ export class UIManager {
    */
   hideCardWithDelay() {
     // Wait for the content to be visible, then start the hide sequence
-    setTimeout(() => {
+    clearTimeout(this.hideCardTimer);
+    this.hideCardTimer = setTimeout(() => {
       if (this.elements.FLOATING_CARD) {
         this.elements.FLOATING_CARD.classList.add('slide-out');
       }
@@ -253,5 +257,23 @@ export class UIManager {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Check if no usable book covers could be loaded
+   * @param {Array} images - Loaded images aligned with the books array
+   * @returns {boolean} True if no covers can be rendered
+   */
+  handleNoUsableImages(images) {
+    if (!images.some(Boolean)) {
+      this.setProgressText("No book covers could be loaded.");
+      return true;
+    }
+    return false;
+  }
+
+  destroy() {
+    clearTimeout(this.hideCardTimer);
+    this.hideCardTimer = null;
   }
 }

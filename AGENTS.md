@@ -2,9 +2,13 @@
 
 This repository is a Goodreads book cover flow visualization built with vanilla JavaScript and deployed on Vercel.
 
+## Product Contract
+
+- Before changing startup parameters, request methods, browser storage, embedding behavior, or viewport support, read `README.md` section "Intended Usage" and preserve that runtime contract.
+
 ## Development Environment and Tools
 
-- Use `npx vercel dev` for local testing and development instead of `npm run dev`; the project is designed for Vercel's serverless environment and should work locally without network access.
+- Use `npx vercel dev` for local testing and development instead of `npm run dev`; the project is designed for Vercel's serverless environment. The local shell can start offline, but live Goodreads data and cover images require network access.
 - The backend uses Vercel serverless functions in `api/goodreads.js`, while the frontend is served as static files from `public`.
 
 ## Code Style and Architecture

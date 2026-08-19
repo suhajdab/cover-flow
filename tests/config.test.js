@@ -11,7 +11,8 @@ test("builds API requests in ascending date-read order", () => {
   };
 
   try {
-    const endpoint = new URL(Config.buildApiEndpoint(2), "https://example.test");
+    const request = Config.buildApiRequest(2);
+    const endpoint = new URL(request.url, "https://example.test");
 
     assert.equal(endpoint.searchParams.get("userId"), "123");
     assert.equal(endpoint.searchParams.get("shelf"), "read");
@@ -19,6 +20,8 @@ test("builds API requests in ascending date-read order", () => {
     assert.equal(endpoint.searchParams.get("page"), "2");
     assert.equal(endpoint.searchParams.get("sort"), "date_read");
     assert.equal(endpoint.searchParams.get("order"), "a");
+    assert.equal(request.options.method, undefined);
+    assert.equal(request.options.body, undefined);
   } finally {
     global.window = originalWindow;
   }
