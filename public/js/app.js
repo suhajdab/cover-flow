@@ -3,7 +3,7 @@ import { ImageLoader } from './image-loader.js';
 import { CoverFlowRenderer } from './cover-flow-renderer.js';
 import { AnimationController } from './animation-controller.js';
 import { UIManager } from './ui-manager.js';
-import { RSSDialog } from './rss-dialog.js';
+import { GoodreadsDialog } from "./goodreads-dialog.js";
 import { SELECTORS } from './config.js';
 
 /**
@@ -30,8 +30,8 @@ export class BookCoverFlowApp {
   async initialize() {
     try {
       // Check if we have required query parameters
-      if (!RSSDialog.hasValidUserIdParam()) {
-        this.showRSSDialog();
+      if (!GoodreadsDialog.hasValidUserIdParam()) {
+        this.showGoodreadsDialog();
         return;
       }
 
@@ -50,7 +50,7 @@ export class BookCoverFlowApp {
       // Initialize progress list UI
       this.uiManager.initializeProgressList();
 
-      // Set up RSS parsing progress callback
+      // Set up shelf loading progress callback
       this.bookDataService.setProgressCallback((step, data, page) => {
         if (this.destroyed) return;
 
@@ -150,11 +150,11 @@ export class BookCoverFlowApp {
 
 
   /**
-   * Show the RSS dialog for URL input
+   * Show the Goodreads setup dialog
    */
-  showRSSDialog() {
-    const rssDialog = new RSSDialog();
-    rssDialog.show();
+  showGoodreadsDialog() {
+    const goodreadsDialog = new GoodreadsDialog();
+    goodreadsDialog.show();
   }
 
   /**

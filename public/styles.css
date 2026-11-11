@@ -240,7 +240,7 @@ body {
   color: #ff6b35;
 }
 
-/* RSS Dialog Styles */
+/* Goodreads Setup Dialog */
 .dialog-overlay {
   position: fixed;
   top: 0;
@@ -286,8 +286,9 @@ body {
   margin-bottom: 1.5rem;
 }
 
-#rss-url-input {
+#goodreads-url-input {
   flex: 1;
+  min-width: 0;
   padding: 0.75rem;
   border: 1px solid #555;
   border-radius: 6px;
@@ -296,13 +297,13 @@ body {
   font-size: 1rem;
 }
 
-#rss-url-input:focus {
+#goodreads-url-input:focus {
   outline: none;
   border-color: #ff6b35;
   box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
 }
 
-#submit-rss-url {
+#submit-goodreads-url {
   padding: 0.75rem 1.5rem;
   background: linear-gradient(90deg, #ff6b35, #f7931e);
   color: white;
@@ -315,40 +316,19 @@ body {
   transition: opacity 0.2s ease;
 }
 
-#submit-rss-url:hover {
+#submit-goodreads-url:hover {
   opacity: 0.9;
 }
 
-#submit-rss-url:disabled {
+#submit-goodreads-url:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.help-text {
-  background: #1a1a1a;
-  border-radius: 6px;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-left: 3px solid #ff6b35;
-}
-
-.help-text ol {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
-  color: #bbb;
-}
-
-.help-text li {
-  margin-bottom: 0.25rem;
-}
-
-.help-text em {
-  color: #999;
-  font-style: italic;
-}
-
-.help-text p {
-  overflow-wrap: anywhere;
+.dialog-content label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fff;
 }
 
 .github-link {

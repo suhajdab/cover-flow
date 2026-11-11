@@ -1,234 +1,132 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import handler from '../api/goodreads.js';
+import test from "node:test";
+import assert from "node:assert/strict";
+import handler from "../api/goodreads.js";
 
-function createMockRes() {
-  return {
+function widget(...books) {
+  const entries = books.map(([reviewId, title, cover = "https://i.gr-assets.com/images/S/books/123l/55._SX50_.jpg"]) =>
+    `<div class="gr_grid_book_container"><a href="/review/show/${reviewId}?utm_medium=api" title="${title}"><img src="${cover}" alt="Short title"></a></div>`
+  );
+  const markup = `<h2>Reader&#39;s books</h2><div class="gr_grid_container">${entries.join("")}</div>`;
+  return new Response(`var widget_code = ${JSON.stringify(markup)}; document.write(widget_code);`);
+}
+
+async function request(query = {}, method = "GET") {
+  const res = {
     statusCode: 200,
     headers: {},
-    data: null,
     setHeader(key, value) { this.headers[key] = value; },
     status(code) { this.statusCode = code; return this; },
     json(payload) { this.data = payload; return this; }
   };
+  await handler({ method, query: { userId: "123", ...query } }, res);
+  return res;
 }
 
-test('invalid userId returns 400', async () => {
-  const req = {
-    method: 'GET',
-    query: { userId: 'abc' }
-  };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 400);
-  assert.equal(res.data.error, 'Invalid userId format. Must be numeric.');
-});
+test("rejects unsupported methods and invalid query parameters", async t => {
+  t.mock.method(globalThis, "fetch", () => assert.fail("Invalid inputs must not trigger a fetch"));
+  const post = await request({}, "POST");
+  assert.equal(post.statusCode, 405);
+  assert.equal(post.headers.Allow, "GET");
 
-test('rejects unsupported methods', async () => {
-  const req = { method: 'POST', query: {} };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 405);
-  assert.equal(res.data.error, 'Method not allowed');
-  assert.equal(res.headers.Allow, 'GET');
-});
-
-test("accepts a feed key in the GET query", async () => {
-  const mockXml = "<rss><channel><title>Test</title></channel></rss>";
-  const originalFetch = global.fetch;
-  let capturedUrl = "";
-  global.fetch = async url => {
-    capturedUrl = url;
-    return { ok: true, text: async () => mockXml };
-  };
-
-  try {
-    const req = {
-      method: "GET",
-      query: { userId: "123", key: "private-key" }
-    };
-    const res = createMockRes();
-
-    await handler(req, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(new URL(capturedUrl).searchParams.get("key"), "private-key");
-  } finally {
-    global.fetch = originalFetch;
+  for (const [query, message] of [
+    [{ userId: undefined }, /Missing required parameter/],
+    [{ userId: "abc" }, /Invalid userId/],
+    [{ userId: ["123", "456"] }, /Invalid userId/],
+    [{ shelf: "../etc/passwd" }, /Invalid shelf/],
+    [{ key: "invalid!" }, /Invalid key/],
+    [{ page: "0" }, /Invalid page/],
+    [{ page: "1junk" }, /Invalid page/],
+    [{ page: "22" }, /Invalid page/],
+    [{ sort: "invalid-sort!" }, /Invalid sort/],
+    [{ order: "invalid" }, /Invalid order/]
+  ]) {
+    const res = await request(query);
+    assert.equal(res.statusCode, 400);
+    assert.match(res.data.error, message);
+    assert.equal(res.headers["X-Content-Type-Options"], "nosniff");
   }
 });
 
-test("allows page 21 only for pagination lookahead", async () => {
-  const mockXml = "<rss><channel><title>Test</title></channel></rss>";
-  const originalFetch = global.fetch;
-  global.fetch = async () => ({ ok: true, text: async () => mockXml });
+test("merges widget windows in ascending order, using the newest window for overlap", async t => {
+  const fetch = t.mock.method(globalThis, "fetch", async url => {
+    return new URL(url).searchParams.get("order") === "a"
+      ? widget(["1", "Oldest"], ["2", "Overlap"], ["2", "Duplicate"], ["3", "Unsafe cover", "https://evil.test/cover.jpg"])
+      : widget(["4", "The &quot;Newest&quot; &amp; Best"], ["2", "Overlap"]);
+  });
 
-  try {
-    const page21Res = createMockRes();
-    await handler({ method: "GET", query: { userId: "123", page: "21" } }, page21Res);
-    assert.equal(page21Res.statusCode, 200);
-
-    const page22Res = createMockRes();
-    await handler({ method: "GET", query: { userId: "123", page: "22" } }, page22Res);
-    assert.equal(page22Res.statusCode, 400);
-  } finally {
-    global.fetch = originalFetch;
+  const res = await request({ key: "private-key", sort: "date_added", order: "d" });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.data.page, 1);
+  assert.equal(res.data.hasMore, false);
+  assert.equal(res.data.title, "Reader's books");
+  assert.deepEqual(res.data.items.map(book => book.title), ["Oldest", "Overlap", 'The "Newest" & Best']);
+  assert.deepEqual(res.data.items[2], {
+    book_id: 55,
+    title: 'The "Newest" & Best',
+    author_name: "",
+    image_url: "https://i.gr-assets.com/images/S/books/123l/55._SX50_.jpg",
+    read_at: null,
+    date_added: null
+  });
+  assert.deepEqual(res.headers, {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  });
+  assert.equal(fetch.mock.callCount(), 2);
+  for (const [index, order] of ["a", "d"].entries()) {
+    const [url, options] = fetch.mock.calls[index].arguments;
+    const { origin, pathname, searchParams } = new URL(url);
+    assert.equal(origin, "https://www.goodreads.com");
+    assert.equal(pathname, "/review/grid_widget/123");
+    assert.deepEqual(Object.fromEntries(searchParams), { shelf: "read", sort: "date_read", order, num_books: "200" });
+    assert.equal(options.redirect, "error");
   }
 });
 
-test('invalid shelf input returns 400', async () => {
-  const req = {
-    method: 'GET',
-    query: { userId: '123', shelf: '../etc/passwd' }
-  };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 400);
-  assert.match(res.data.error, /Invalid shelf format/);
-  assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
-});
+test("custom shelves use date-added sorting and keep a usable window after an upstream failure", async t => {
+  t.mock.method(globalThis, "fetch", async url => {
+    const params = new URL(url).searchParams;
+    assert.equal(params.get("shelf"), "read-ai");
+    assert.equal(params.get("sort"), "date_added");
+    return params.get("order") === "a"
+      ? new Response("", { status: 503 })
+      : widget(["3", "New"], ["2", "Old"]);
+  });
 
-test('invalid page parameter returns 400', async () => {
-  const req = {
-    method: 'GET',
-    query: { userId: '123', page: '0' }
-  };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 400);
-  assert.match(res.data.error, /Invalid page number/);
-});
-
-test("malformed page parameter returns 400", async () => {
-  const req = {
-    method: "GET",
-    query: { userId: "123", page: "1junk" }
-  };
-  const res = createMockRes();
-
-  await handler(req, res);
-
-  assert.equal(res.statusCode, 400);
-  assert.match(res.data.error, /Invalid page number/);
-});
-
-test("single-item feeds return one book", async () => {
-  const mockXml = "<rss><channel><title>Test</title>" +
-    "<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>" +
-    "<book_large_image_url></book_large_image_url></item>" +
-    "</channel></rss>";
-  const originalFetch = global.fetch;
-  global.fetch = async () => ({ ok: true, text: async () => mockXml });
-
-  try {
-    const req = { method: "GET", query: { userId: "123" } };
-    const res = createMockRes();
-
-    await handler(req, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.data.items.length, 1);
-    assert.equal(res.data.items[0].title, "Book");
-    assert.equal(res.data.hasMore, false);
-  } finally {
-    global.fetch = originalFetch;
-  }
-});
-
-test('security headers exist on success', async () => {
-  const mockXml = '<rss><channel><title>Test</title>' +
-    '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name><book_large_image_url></book_large_image_url></item>' +
-    '<item><book_id>2</book_id><title>Book2</title><author_name>Auth2</author_name><book_large_image_url></book_large_image_url></item>' +
-    '</channel></rss>';
-  const originalFetch = global.fetch;
-  global.fetch = async () => ({ ok: true, text: async () => mockXml });
-
-  const req = { method: 'GET', query: { userId: '123' } };
-  const res = createMockRes();
-  await handler(req, res);
-
+  const res = await request({ shelf: "read-ai" });
   assert.equal(res.statusCode, 200);
-  assert.equal(res.headers['X-Content-Type-Options'], 'nosniff');
-  assert.equal(res.headers['X-Frame-Options'], 'DENY');
-  assert.equal(res.headers['X-XSS-Protection'], '1; mode=block');
-  assert.equal(res.headers['Referrer-Policy'], 'strict-origin-when-cross-origin');
-
-  global.fetch = originalFetch;
+  assert.deepEqual(res.data.items.map(book => book.title), ["Old", "New"]);
 });
 
-test('invalid sort parameter returns 400', async () => {
-  const req = {
-    method: 'GET',
-    query: { userId: '123', sort: 'invalid-sort!' }
-  };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 400);
-  assert.match(res.data.error, /Invalid sort parameter format/);
-});
-
-test('invalid order parameter returns 400', async () => {
-  const req = {
-    method: 'GET',
-    query: { userId: '123', order: 'invalid' }
-  };
-  const res = createMockRes();
-  await handler(req, res);
-  assert.equal(res.statusCode, 400);
-  assert.match(res.data.error, /Invalid order parameter format/);
-});
-
-test('valid sort and order parameters cannot override chronological ordering', async () => {
-  const mockXml = '<rss><channel><title>Test</title>' +
-    '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
-    '<book_large_image_url></book_large_image_url>' +
-    '<user_read_at></user_read_at><date_added></date_added></item>' +
-    '<item><book_id>2</book_id><title>Book2</title><author_name>Auth2</author_name>' +
-    '<book_large_image_url></book_large_image_url>' +
-    '<user_read_at></user_read_at><date_added></date_added></item>' +
-    '</channel></rss>';
-  const originalFetch = global.fetch;
-  let capturedUrl = '';
-  global.fetch = async (url) => {
-    capturedUrl = url;
-    return { ok: true, text: async () => mockXml };
-  };
-
-  const req = { method: 'GET', query: { userId: '123', sort: 'date_added', order: 'd' } };
-  const res = createMockRes();
-  await handler(req, res);
-
+test("returns an empty shelf when both widgets have no covers", async t => {
+  t.mock.method(globalThis, "fetch", async () => widget());
+  const res = await request();
   assert.equal(res.statusCode, 200);
-  assert.match(capturedUrl, /sort=date_read/);
-  assert.match(capturedUrl, /order=a/);
-
-  global.fetch = originalFetch;
+  assert.deepEqual(res.data, { page: 1, items: [], title: "Reader's books", hasMore: false });
 });
 
-test('default chronological order is applied when not provided', async () => {
-  const mockXml = '<rss><channel><title>Test</title>' +
-    '<item><book_id>1</book_id><title>Book</title><author_name>Auth</author_name>' +
-    '<book_large_image_url></book_large_image_url>' +
-    '<user_read_at></user_read_at><date_added></date_added></item>' +
-    '<item><book_id>2</book_id><title>Book2</title><author_name>Auth2</author_name>' +
-    '<book_large_image_url></book_large_image_url>' +
-    '<user_read_at></user_read_at><date_added></date_added></item>' +
-    '</channel></rss>';
-  const originalFetch = global.fetch;
-  let capturedUrl = '';
-  global.fetch = async (url) => {
-    capturedUrl = url;
-    return { ok: true, text: async () => mockXml };
-  };
-
-  const req = { method: 'GET', query: { userId: '123' } };
-  const res = createMockRes();
-  await handler(req, res);
-
-  assert.equal(res.statusCode, 200);
-  assert.match(capturedUrl, /sort=date_read/);
-  assert.match(capturedUrl, /order=a/);
-
-  global.fetch = originalFetch;
+test("rejects malformed widget bodies even when Goodreads returns 200", async t => {
+  t.mock.method(globalThis, "fetch", async url => new Response(
+    new URL(url).searchParams.get("order") === "a"
+      ? "<!doctype html><title>Goodreads Sign In</title>"
+      : 'var widget_code = "<h2>Missing grid</h2>";'
+  ));
+  t.mock.method(console, "error", () => {});
+  const res = await request();
+  assert.equal(res.statusCode, 502);
 });
 
+test("reports a timeout when neither widget can be fetched", async t => {
+  t.mock.method(globalThis, "fetch", async () => { throw new DOMException("Timed out", "TimeoutError"); });
+  const res = await request();
+  assert.equal(res.statusCode, 504);
+});
+
+test("returns an empty result for a legacy lookahead page without repeating the fetch", async t => {
+  const fetch = t.mock.method(globalThis, "fetch");
+  const res = await request({ page: "21" });
+  assert.deepEqual(res.data, { page: 21, items: [], title: "", hasMore: false });
+  assert.equal(fetch.mock.callCount(), 0);
+});

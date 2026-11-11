@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Config } from "../public/js/config.js";
 
-test("builds API requests in ascending date-read order", () => {
+test("builds shelf GET requests without legacy credentials or sorting options", () => {
   const originalWindow = global.window;
   global.window = {
     location: {
@@ -16,10 +16,10 @@ test("builds API requests in ascending date-read order", () => {
 
     assert.equal(endpoint.searchParams.get("userId"), "123");
     assert.equal(endpoint.searchParams.get("shelf"), "read");
-    assert.equal(endpoint.searchParams.get("key"), "test-key");
+    assert.equal(endpoint.searchParams.has("key"), false);
     assert.equal(endpoint.searchParams.get("page"), "2");
-    assert.equal(endpoint.searchParams.get("sort"), "date_read");
-    assert.equal(endpoint.searchParams.get("order"), "a");
+    assert.equal(endpoint.searchParams.has("sort"), false);
+    assert.equal(endpoint.searchParams.has("order"), false);
     assert.equal(request.options.method, undefined);
     assert.equal(request.options.body, undefined);
   } finally {

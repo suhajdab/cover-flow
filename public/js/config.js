@@ -52,53 +52,18 @@ export const Config = {
   },
 
   /**
-   * Get sort parameter from URL params
-   * @returns {string|null} Sort parameter or null if not provided
-   */
-  getSort() {
-    const params = this.getUrlParams();
-    return params.get('sort');
-  },
-
-  /**
-   * Get order parameter from URL params
-   * @returns {string|null} Order parameter or null if not provided
-   */
-  getOrder() {
-    const params = this.getUrlParams();
-    return params.get('order');
-  },
-
-  /**
-   * Get key from URL params
-   * @returns {string|null} API key or null if not provided
-   */
-  getKey() {
-    return this.getUrlParams().get("key");
-  },
-
-  /**
    * Build API request with current parameters
    * @param {number} [page] - Optional page number
    * @returns {{url: string, options: RequestInit}} API URL and fetch options
    */
   buildApiRequest(page) {
-    const userId = this.getUserId();
-    const shelf = this.getShelf();
-    const key = this.getKey();
-
     const params = new URLSearchParams({
-      userId,
-      shelf,
-      sort: "date_read",
-      order: "a"
+      userId: this.getUserId(),
+      shelf: this.getShelf()
     });
 
-    if (key) {
-      params.set("key", key);
-    }
     if (page) {
-      params.set('page', page.toString());
+      params.set("page", page.toString());
     }
 
     return {

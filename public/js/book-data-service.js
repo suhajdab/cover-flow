@@ -12,7 +12,7 @@ export class BookDataService {
   }
 
   /**
-   * Set progress callback for RSS parsing
+   * Set progress callback for shelf loading
    * @param {Function} callback - Progress callback function
    */
   setProgressCallback(callback) {
