@@ -24,9 +24,9 @@ This repository is a Goodreads book cover flow visualization built with vanilla 
 
 ## API and Data Handling
 
-The backend API converts Goodreads RSS feeds into clean JSON. When changing book data handling, preserve:
+The backend API converts public Goodreads shelf widgets into clean JSON. When changing book data handling, preserve:
 
-- XML parsing from Goodreads RSS feeds.
+- Parsing Goodreads widget responses as data without executing scripts.
 - Image URL extraction and validation.
 - Error handling for failed API requests.
 - Progress tracking during data loading.

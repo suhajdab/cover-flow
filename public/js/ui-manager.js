@@ -253,7 +253,7 @@ export class UIManager {
    */
   handleEmptyState(books) {
     if (!books || books.length === 0) {
-      this.setProgressText('No books found.');
+      this.setProgressText("No public covers found. Check that the Goodreads profile is public and the shelf has books.");
       return true;
     }
     return false;
